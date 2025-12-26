@@ -60,9 +60,9 @@ class AbletonConnection:
                     chunks.append(chunk)
 
                     # Check if we've received a complete JSON object
-                    # Optimization: Only attempt to parse if the last byte looks like the end of a JSON object
+                    # Optimization: Only attempt to parse if the last byte looks like the end of a JSON object/array
                     # This avoids O(N^2) parsing attempts for large payloads
-                    if chunk.rstrip().endswith(b'}'):
+                    if chunk.rstrip().endswith((b'}', b']')):
                         try:
                             data = b''.join(chunks)
                             json.loads(data.decode('utf-8'))
