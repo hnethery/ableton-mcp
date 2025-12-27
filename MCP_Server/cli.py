@@ -7,8 +7,15 @@ import argparse
 import logging
 import sys
 import os
-from typing import List, Optional
+import asyncio
 import importlib.metadata
+from typing import List, Optional
+
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from rich import print as rprint
 
 from .server import mcp, main as server_main
 
@@ -16,6 +23,9 @@ from .server import mcp, main as server_main
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AbletonMCP-CLI")
+
+# Initialize rich console
+console = Console()
 
 def get_version() -> str:
     """Get the current version of the package."""
@@ -79,21 +89,46 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
 def show_version() -> None:
     """Show version information."""
-    print(f"Ableton MCP v{get_version()}")
-    print("Ableton Live integration through the Model Context Protocol")
-    print("https://github.com/itsuzef/ableton-mcp")
+    version_text = Text(f"Ableton MCP v{get_version()}", style="bold cyan")
+    description = Text("Ableton Live integration through the Model Context Protocol", style="italic")
+    link = Text("https://github.com/itsuzef/ableton-mcp", style="blue underline")
+
+    panel = Panel(
+        Text.assemble(version_text, "\n", description, "\n", link, justify="center"),
+        title="✨ Ableton MCP ✨",
+        border_style="cyan"
+    )
+    console.print(panel)
+
+async def _get_tools_info():
+    """Async helper to get tools info."""
+    return await mcp.list_tools()
 
 def show_info() -> None:
     """Show information about the MCP server."""
-    print(f"Ableton MCP v{get_version()}")
-    print("\nAvailable MCP functions:")
+    show_version()
     
-    # Get all registered functions from the MCP server
-    functions = mcp.list_functions()
-    for func in functions:
-        print(f"  - {func}")
+    console.print("\n[bold]Available MCP functions:[/bold]")
     
-    print("\nFor more information, start the server and visit http://localhost:8000/docs")
+    try:
+        # Get all registered functions from the MCP server
+        functions = asyncio.run(_get_tools_info())
+
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Tool Name", style="cyan")
+        table.add_column("Description", style="white")
+
+        for func in functions:
+            # Get the first line of description only for cleanliness
+            desc = func.description.strip().split('\n')[0] if func.description else "No description"
+            table.add_row(func.name, desc)
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]Error listing functions:[/bold red] {e}")
+
+    console.print("\n[italic]For more information, start the server and visit http://localhost:8000/docs[/italic]")
 
 def find_ableton_script_path() -> Optional[str]:
     """
@@ -150,29 +185,35 @@ def find_ableton_script_path() -> Optional[str]:
 
 def install_remote_script(ableton_path: Optional[str] = None, force: bool = False) -> None:
     """Install the Ableton Live Remote Script."""
+    console.print("[bold blue]Installing Ableton Live Remote Script...[/bold blue]")
+
     # Determine the source path (where the Remote Script files are in our package)
     package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     source_path = os.path.join(package_dir, "AbletonMCP_Remote_Script")
     
     if not os.path.exists(source_path):
-        print(f"Error: Remote Script source directory not found at {source_path}")
+        console.print(f"[bold red]Error:[/bold red] Remote Script source directory not found at {source_path}")
         sys.exit(1)
     
     # Determine the target path (where to install in Ableton)
     target_base_path = ableton_path
     if not target_base_path:
-        target_base_path = find_ableton_script_path()
+        with console.status("[bold yellow]Searching for Ableton Live installation...[/bold yellow]"):
+            target_base_path = find_ableton_script_path()
+
         if not target_base_path:
-            print("Error: Could not find Ableton Live Remote Scripts directory.")
-            print("Please specify the path using --ableton-path")
+            console.print("[bold red]Error:[/bold red] Could not find Ableton Live Remote Scripts directory.")
+            console.print("Please specify the path using --ableton-path")
             sys.exit(1)
+        else:
+            console.print(f"[green]Found Ableton Live at:[/green] {target_base_path}")
     
     target_path = os.path.join(target_base_path, "AbletonMCP_Remote_Script")
     
     # Check if the script is already installed
     if os.path.exists(target_path) and not force:
-        print(f"Remote Script is already installed at {target_path}")
-        print("Use --force to reinstall")
+        console.print(f"[yellow]Remote Script is already installed at:[/yellow] {target_path}")
+        console.print("Use --force to reinstall")
         return
     
     # Create the target directory if it doesn't exist
@@ -180,20 +221,34 @@ def install_remote_script(ableton_path: Optional[str] = None, force: bool = Fals
     
     # Copy all files from source to target
     import shutil
-    for item in os.listdir(source_path):
-        source_item = os.path.join(source_path, item)
-        target_item = os.path.join(target_path, item)
+    try:
+        with console.status("[bold green]Copying files...[/bold green]"):
+            for item in os.listdir(source_path):
+                source_item = os.path.join(source_path, item)
+                target_item = os.path.join(target_path, item)
+
+                if os.path.isfile(source_item):
+                    shutil.copy2(source_item, target_item)
+                elif os.path.isdir(source_item):
+                    shutil.copytree(source_item, target_item, dirs_exist_ok=True)
         
-        if os.path.isfile(source_item):
-            shutil.copy2(source_item, target_item)
-            print(f"Copied {item}")
-        elif os.path.isdir(source_item):
-            shutil.copytree(source_item, target_item, dirs_exist_ok=True)
-            print(f"Copied directory {item}")
-    
-    print(f"\nSuccessfully installed Remote Script to {target_path}")
-    print("\nIMPORTANT: You need to restart Ableton Live for the changes to take effect.")
-    print("After restarting, enable the 'AbletonMCP_Remote_Script' in Ableton's MIDI preferences.")
+        success_panel = Panel(
+            Text.assemble(
+                ("Successfully installed Remote Script to:\n", "bold green"),
+                (f"{target_path}\n\n", "default"),
+                ("IMPORTANT INSTRUCTIONS:\n", "bold yellow"),
+                ("1. Restart Ableton Live\n", "default"),
+                ("2. Open Preferences > Link/Tempo/MIDI\n", "default"),
+                ("3. Select 'AbletonMCP' as a Control Surface", "default"),
+            ),
+            title="✅ Installation Complete",
+            border_style="green"
+        )
+        console.print(success_panel)
+
+    except Exception as e:
+        console.print(f"[bold red]Error installing script:[/bold red] {e}")
+        sys.exit(1)
 
 def main() -> None:
     """Main entry point for the CLI."""
@@ -205,8 +260,8 @@ def main() -> None:
             logging.getLogger().setLevel(logging.DEBUG)
         
         # Start the server
-        print(f"Starting Ableton MCP server v{get_version()} on http://{args.host}:{args.port}")
-        print("Press Ctrl+C to stop the server")
+        console.print(Panel(f"Starting Ableton MCP server v{get_version()}\nhttp://{args.host}:{args.port}", style="bold green"))
+        console.print("Press Ctrl+C to stop the server")
         
         # Set environment variables for the server
         os.environ["MCP_HOST"] = args.host
