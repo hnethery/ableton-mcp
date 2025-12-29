@@ -157,6 +157,11 @@ class AbletonMCP(ControlSurface):
                         buffer += data
                     
                     try:
+                        # Optimization: Only attempt to parse if the buffer looks
+                        # like a complete JSON object to avoid O(N^2) parsing.
+                        if not buffer.strip().endswith('}'):
+                            continue
+
                         # Try to parse command from buffer
                         command = json.loads(buffer)  # Removed decode('utf-8')
                         buffer = ''  # Clear buffer after successful parse
