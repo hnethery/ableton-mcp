@@ -786,6 +786,10 @@ def set_eq_band(ctx: Context, track_index: int, device_index: int, band_index: i
     - String with the result of the operation
     """
     try:
+        # Validate band index locally before sending to Ableton
+        if band_index < 0 or band_index > 7:
+            return f"Error: Band index must be between 0 and 7"
+
         ableton = get_ableton_connection()
 
         # Delegate to the remote script command 'set_eq_band'
@@ -940,6 +944,11 @@ def apply_eq_preset(ctx: Context, track_index: int, device_index: int, preset_ty
     - String with the result of the operation
     """
     try:
+        # Validate preset type locally
+        valid_presets = ["low_cut", "high_cut", "low_shelf", "high_shelf", "bell", "notch", "flat"]
+        if preset_type not in valid_presets:
+             return f"Error: Unknown preset type '{preset_type}'. Available presets: {', '.join(valid_presets)}"
+
         ableton = get_ableton_connection()
 
         # Delegate to the remote script command 'apply_eq_preset'
@@ -957,7 +966,7 @@ def apply_eq_preset(ctx: Context, track_index: int, device_index: int, preset_ty
 
     except Exception as e:
         logger.error(f"Error applying EQ preset: {str(e)}")
-        return f"Error applying EQ preset: {str(e)}"
+        return f"Error applying EQ preset: Check server logs for details"
 
 
 @mcp.tool()

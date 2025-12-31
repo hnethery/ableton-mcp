@@ -839,28 +839,61 @@ class AbletonMCP(ControlSurface):
     
     def _frequency_to_normalized(self, frequency, min_freq=20.0, max_freq=20000.0):
         """Convert frequency in Hz to normalized value (0-1) using logarithmic scale"""
+        # Validate inputs
+        if frequency is None:
+            raise ValueError("Frequency must be provided")
+
+        try:
+            frequency = float(frequency)
+            min_freq = float(min_freq)
+            max_freq = float(max_freq)
+        except (ValueError, TypeError):
+            raise ValueError("Frequency values must be numeric")
+
+        if min_freq >= max_freq:
+            raise ValueError("Minimum frequency must be less than maximum frequency")
+
+        if min_freq <= 0:
+            raise ValueError("Minimum frequency must be positive for logarithmic scale")
+
         if frequency < min_freq:
             frequency = min_freq
         if frequency > max_freq:
             frequency = max_freq
 
         # Convert to logarithmic scale
-        # Use floats to ensure Python 2 compatibility
-        log_min = math.log10(float(min_freq))
-        log_max = math.log10(float(max_freq))
-        log_freq = math.log10(float(frequency))
+        log_min = math.log10(min_freq)
+        log_max = math.log10(max_freq)
+        log_freq = math.log10(frequency)
 
         return (log_freq - log_min) / (log_max - log_min)
 
     def _normalized_to_frequency(self, normalized, min_freq=20.0, max_freq=20000.0):
         """Convert normalized value (0-1) to frequency in Hz using logarithmic scale"""
+        # Validate inputs
+        if normalized is None:
+            raise ValueError("Normalized value must be provided")
+
+        try:
+            normalized = float(normalized)
+            min_freq = float(min_freq)
+            max_freq = float(max_freq)
+        except (ValueError, TypeError):
+            raise ValueError("Values must be numeric")
+
+        if min_freq >= max_freq:
+            raise ValueError("Minimum frequency must be less than maximum frequency")
+
+        if min_freq <= 0:
+            raise ValueError("Minimum frequency must be positive for logarithmic scale")
+
         if normalized < 0.0:
             normalized = 0.0
         if normalized > 1.0:
             normalized = 1.0
 
-        log_min = math.log10(float(min_freq))
-        log_max = math.log10(float(max_freq))
+        log_min = math.log10(min_freq)
+        log_max = math.log10(max_freq)
 
         log_freq = normalized * (log_max - log_min) + log_min
         return 10.0 ** log_freq
@@ -1173,6 +1206,7 @@ class AbletonMCP(ControlSurface):
                     results["filter_type"] = str(filter_param.value_items[filter_type])
             
             return {
+                # Return dictionary for server to parse
                 "band_index": band_index,
                 "parameters": results
             }
@@ -1450,6 +1484,7 @@ class AbletonMCP(ControlSurface):
                     applied_settings[f"band_{band_index}"] = band_settings
             
             return {
+                # Return dictionary for server to parse
                 "preset_type": preset_type,
                 "applied_settings": applied_settings
             }
