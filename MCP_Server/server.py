@@ -868,82 +868,37 @@ def set_eq_global(ctx: Context, track_index: int, device_index: int,
     try:
         ableton = get_ableton_connection()
 
-        # First, verify that this is an EQ Eight device
-        device_info = ableton.send_command("get_device_parameters", {
+        # Delegate to the remote script command 'set_eq_global'
+        # This allows the remote script to handle all parameter mapping logic centrally,
+        # including properties like 'oversample' and 'global_mode' which are not standard parameters.
+        result = ableton.send_command("set_eq_global", {
             "track_index": track_index,
-            "device_index": device_index
+            "device_index": device_index,
+            "scale": scale,
+            "mode": mode,
+            "oversampling": oversampling
         })
 
-        if "device_name" not in device_info or "EQ Eight" not in device_info["device_name"]:
-            return f"Error: Device at index {device_index} is not an EQ Eight device"
-
-        # Set parameters as requested
+        # Format the result string
         results = []
+        global_params = result.get("global_parameters", {})
 
-        # Set scale if provided
-        if scale is not None:
-            _ = ableton.send_command("set_device_parameter", {
-                "track_index": track_index,
-                "device_index": device_index,
-                "parameter_name": "Scale",
-                "value": scale
-            })
-            results.append(f"Set Scale to {scale}")
+        if "scale" in global_params:
+            results.append(f"Set Scale to {global_params['scale']}")
 
-        # Set mode if provided - Note: EQ Eight doesn't seem to have a "Mode" parameter
-        # We'll check if there's a parameter with "Mode" in its name
-        if mode is not None:
-            # Get all parameters to find one that might be the mode
-            all_params = device_info.get("parameters", [])
-            mode_param = None
+        if "mode" in global_params:
+            results.append(f"Set Mode to {global_params['mode']}")
 
-            for param in all_params:
-                if "Mode" in param.get("name", ""):
-                    mode_param = param
-                    break
-
-            if mode_param:
-                _ = ableton.send_command("set_device_parameter", {
-                    "track_index": track_index,
-                    "device_index": device_index,
-                    "parameter_name": mode_param["name"],
-                    "value": mode
-                })
-                results.append(f"Set {mode_param['name']} to {mode}")
+        if "oversampling" in global_params:
+            status = "enabled" if global_params['oversampling'] else "disabled"
+            if global_params['oversampling'] == "not_supported":
+                results.append(
+                    "Warning: Oversampling not supported on this device")
             else:
-                results.append(
-                    f"Warning: Could not find a Mode parameter in EQ Eight")
-
-        # Set oversampling if provided - Note: EQ Eight doesn't seem to have an "Oversampling" parameter
-        # We'll check if there's a parameter with "Oversampling" or "Hi Quality" in its name
-        if oversampling is not None:
-            # Get all parameters to find one that might be oversampling
-            all_params = device_info.get("parameters", [])
-            oversampling_param = None
-
-            for param in all_params:
-                param_name = param.get("name", "")
-                if "Oversampling" in param_name or "Hi Quality" in param_name:
-                    oversampling_param = param
-                    break
-
-            if oversampling_param:
-                # Convert boolean to 0 or 1
-                oversampling_value = 1 if oversampling else 0
-                _ = ableton.send_command("set_device_parameter", {
-                    "track_index": track_index,
-                    "device_index": device_index,
-                    "parameter_name": oversampling_param["name"],
-                    "value": oversampling_value
-                })
-                results.append(
-                    f"Set {oversampling_param['name']} to {'enabled' if oversampling else 'disabled'}")
-            else:
-                results.append(
-                    f"Warning: Could not find an Oversampling parameter in EQ Eight")
+                results.append(f"Set Oversampling to {status}")
 
         if not results:
-            return "No parameters were set"
+            return "No parameters were set or operation failed silently"
 
         return "\n".join(results)
     except Exception as e:
