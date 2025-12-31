@@ -1254,13 +1254,14 @@ class AbletonMCP(ControlSurface):
                         oversampling_param = param
                         break
                 
-                if oversampling_param is None:
-                    raise ValueError("Oversampling parameter not found")
-                
-                # Convert boolean to 0 or 1
-                oversampling_value = 1 if oversampling else 0
-                oversampling_param.value = oversampling_value
-                results["oversampling"] = bool(oversampling)
+                if oversampling_param is not None:
+                    # Convert boolean to 0 or 1
+                    oversampling_value = 1 if oversampling else 0
+                    oversampling_param.value = oversampling_value
+                    results["oversampling"] = bool(oversampling)
+                else:
+                    self.log_message("Oversampling parameter not found for EQ Eight device")
+                    results["oversampling"] = "not_supported"
             
             return {
                 "global_parameters": results
