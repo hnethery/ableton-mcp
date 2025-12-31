@@ -898,6 +898,52 @@ class AbletonMCP(ControlSurface):
         log_freq = normalized * (log_max - log_min) + log_min
         return 10.0 ** log_freq
 
+    def _q_to_normalized(self, q, min_q=0.1, max_q=18.0):
+        """Convert Q value to normalized value (0-1) using logarithmic scale"""
+        if q is None:
+            raise ValueError("Q must be provided")
+
+        try:
+            q = float(q)
+            min_q = float(min_q)
+            max_q = float(max_q)
+        except (ValueError, TypeError):
+            raise ValueError("Q values must be numeric")
+
+        if q < min_q:
+            q = min_q
+        if q > max_q:
+            q = max_q
+
+        log_min = math.log10(min_q)
+        log_max = math.log10(max_q)
+        log_q = math.log10(q)
+
+        return (log_q - log_min) / (log_max - log_min)
+
+    def _normalized_to_q(self, normalized, min_q=0.1, max_q=18.0):
+        """Convert normalized value (0-1) to Q value using logarithmic scale"""
+        if normalized is None:
+            raise ValueError("Normalized value must be provided")
+
+        try:
+            normalized = float(normalized)
+            min_q = float(min_q)
+            max_q = float(max_q)
+        except (ValueError, TypeError):
+            raise ValueError("Values must be numeric")
+
+        if normalized < 0.0:
+            normalized = 0.0
+        if normalized > 1.0:
+            normalized = 1.0
+
+        log_min = math.log10(min_q)
+        log_max = math.log10(max_q)
+
+        log_q = normalized * (log_max - log_min) + log_min
+        return 10.0 ** log_q
+
     def _find_browser_item_by_uri(self, browser_or_item, uri, max_depth=10, current_depth=0):
         """Find a browser item by its URI"""
         try:
@@ -1161,17 +1207,7 @@ class AbletonMCP(ControlSurface):
                     raise ValueError(f"Parameter '{q_param_name}' not found")
                 
                 # Convert Q value to normalized value (0-1)
-                # EQ Eight Q range is approximately 0.1 to 18.0
-                if q < 0.1:
-                    q = 0.1
-                if q > 18.0:
-                    q = 18.0
-
-                # Convert to logarithmic scale (approximation)
-                log_min = math.log10(0.1)
-                log_max = math.log10(18.0)
-                log_q = math.log10(q)
-                normalized_q = (log_q - log_min) / (log_max - log_min)
+                normalized_q = self._q_to_normalized(q)
                 
                 q_param.value = normalized_q
                 results["q"] = q
@@ -1454,16 +1490,7 @@ class AbletonMCP(ControlSurface):
                         
                         # Convert Q value to normalized value (0-1)
                         q = settings["q"]
-                        if q < 0.1:
-                            q = 0.1
-                        if q > 18.0:
-                            q = 18.0
-
-                        # Convert to logarithmic scale (approximation)
-                        log_min = math.log10(0.1)
-                        log_max = math.log10(18.0)
-                        log_q = math.log10(q)
-                        normalized_q = (log_q - log_min) / (log_max - log_min)
+                        normalized_q = self._q_to_normalized(q)
                         
                         q_param.value = normalized_q
                         band_settings["q"] = settings["q"]
