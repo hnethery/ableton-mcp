@@ -788,89 +788,34 @@ def set_eq_band(ctx: Context, track_index: int, device_index: int, band_index: i
     try:
         ableton = get_ableton_connection()
 
-        # First, verify that this is an EQ Eight device
-        device_info = ableton.send_command("get_device_parameters", {
+        # Delegate to the remote script command 'set_eq_band'
+        # This allows the remote script to handle all parameter mapping logic centrally
+        result = ableton.send_command("set_eq_band", {
             "track_index": track_index,
-            "device_index": device_index
+            "device_index": device_index,
+            "band_index": band_index,
+            "frequency": frequency,
+            "gain": gain,
+            "q": q,
+            "filter_type": filter_type
         })
 
-        if "device_name" not in device_info or "EQ Eight" not in device_info["device_name"]:
-            return f"Error: Device at index {device_index} is not an EQ Eight device"
-
-        # EQ Eight has 8 bands (0-7)
-        if band_index < 0 or band_index > 7:
-            return f"Error: Band index must be between 0 and 7"
-
-        # Convert band_index (0-7) to the actual band number (1-8)
-        band_number = band_index + 1
-
-        # Set parameters as requested
+        # Format the result string
         results = []
+        band_index = result.get("band_index", band_index)
+        parameters = result.get("parameters", {})
 
-        # Set frequency if provided
-        if frequency is not None:
-            # Convert frequency to normalized value (0-1)
-            if frequency < 20:
-                frequency = 20  # Minimum frequency
-            if frequency > 20000:
-                frequency = 20000  # Maximum frequency
-
-            # Convert to logarithmic scale (approximation)
-            import math
-            log_min = math.log10(20)  # 20 Hz
-            log_max = math.log10(20000)  # 20 kHz
-            log_freq = math.log10(frequency)
-            normalized_value = (log_freq - log_min) / (log_max - log_min)
-
-            freq_param_name = f"{band_number} Frequency A"
-            _ = ableton.send_command("set_device_parameter", {
-                "track_index": track_index,
-                "device_index": device_index,
-                "parameter_name": freq_param_name,
-                "value": normalized_value
-            })
-            results.append(f"Set {freq_param_name} to {frequency} Hz")
-
-        # Set gain if provided
-        if gain is not None:
-            gain_param_name = f"{band_number} Gain A"
-            _ = ableton.send_command("set_device_parameter", {
-                "track_index": track_index,
-                "device_index": device_index,
-                "parameter_name": gain_param_name,
-                "value": gain
-            })
-            results.append(f"Set {gain_param_name} to {gain} dB")
-
-        # Set Q if provided
-        if q is not None:
-            # Convert Q value to normalized value (0-1)
-            normalized_q = q / 10.0  # Assuming max Q is around 10
-            if normalized_q > 1.0:
-                normalized_q = 1.0
-
-            q_param_name = f"{band_number} Resonance A"
-            _ = ableton.send_command("set_device_parameter", {
-                "track_index": track_index,
-                "device_index": device_index,
-                "parameter_name": q_param_name,
-                "value": normalized_q
-            })
-            results.append(f"Set {q_param_name} to {q}")
-
-        # Set filter type if provided
-        if filter_type is not None:
-            filter_param_name = f"{band_number} Filter Type A"
-            _ = ableton.send_command("set_device_parameter", {
-                "track_index": track_index,
-                "device_index": device_index,
-                "parameter_name": filter_param_name,
-                "value": filter_type
-            })
-            results.append(f"Set {filter_param_name} to {filter_type}")
+        if "frequency" in parameters:
+            results.append(f"Set band {band_index+1} Frequency to {parameters['frequency']} Hz")
+        if "gain" in parameters:
+            results.append(f"Set band {band_index+1} Gain to {parameters['gain']} dB")
+        if "q" in parameters:
+            results.append(f"Set band {band_index+1} Q to {parameters['q']}")
+        if "filter_type" in parameters:
+            results.append(f"Set band {band_index+1} Filter Type to {parameters['filter_type']}")
 
         if not results:
-            return "No parameters were set"
+            return "No parameters were set or operation failed silently"
 
         return "\n".join(results)
     except Exception as e:
@@ -997,142 +942,19 @@ def apply_eq_preset(ctx: Context, track_index: int, device_index: int, preset_ty
     try:
         ableton = get_ableton_connection()
 
-        # First, verify that this is an EQ Eight device
-        device_info = ableton.send_command("get_device_parameters", {
+        # Delegate to the remote script command 'apply_eq_preset'
+        result = ableton.send_command("apply_eq_preset", {
             "track_index": track_index,
-            "device_index": device_index
+            "device_index": device_index,
+            "preset_type": preset_type
         })
 
-        if "device_name" not in device_info or "EQ Eight" not in device_info["device_name"]:
-            return f"Error: Device at index {device_index} is not an EQ Eight device"
+        if result.get("preset_type") == preset_type:
+            applied_settings = result.get("applied_settings", {})
+            return f"Applied '{preset_type}' preset to EQ Eight ({len(applied_settings)} bands modified)"
+        else:
+            return f"Failed to apply preset '{preset_type}'"
 
-        # Define presets
-        presets = {
-            "low_cut": {
-                0: {"enabled": True, "freq": 80, "gain": 0, "q": 0.7, "type": "High Pass 48dB"}
-            },
-            "high_cut": {
-                7: {"enabled": True, "freq": 10000, "gain": 0, "q": 0.7, "type": "Low Pass 48dB"}
-            },
-            "low_shelf": {
-                0: {"enabled": True, "freq": 100, "gain": -3, "q": 0.7, "type": "Low Shelf"}
-            },
-            "high_shelf": {
-                7: {"enabled": True, "freq": 8000, "gain": -3, "q": 0.7, "type": "High Shelf"}
-            },
-            "bell": {
-                3: {"enabled": True, "freq": 1000, "gain": 0, "q": 1.0, "type": "Bell"}
-            },
-            "notch": {
-                3: {"enabled": True, "freq": 1000, "gain": -12, "q": 8.0, "type": "Notch"}
-            },
-            "flat": {
-                # Reset all bands to default values
-                0: {"enabled": False},
-                1: {"enabled": False},
-                2: {"enabled": False},
-                3: {"enabled": False},
-                4: {"enabled": False},
-                5: {"enabled": False},
-                6: {"enabled": False},
-                7: {"enabled": False}
-            }
-        }
-
-        if preset_type not in presets:
-            return f"Error: Unknown preset type '{preset_type}'. Available presets: {', '.join(presets.keys())}"
-
-        preset = presets[preset_type]
-        results = []
-
-        # Apply preset settings
-        for band_index, settings in preset.items():
-            # Convert band_index (0-7) to the actual band number (1-8)
-            band_number = band_index + 1
-
-            # Enable/disable the band
-            if "enabled" in settings:
-                enable_param_name = f"{band_number} Filter On A"
-                enable_value = 1 if settings["enabled"] else 0
-                _ = ableton.send_command("set_device_parameter", {
-                    "track_index": track_index,
-                    "device_index": device_index,
-                    "parameter_name": enable_param_name,
-                    "value": enable_value
-                })
-                results.append(
-                    f"Set {enable_param_name} to {'enabled' if settings['enabled'] else 'disabled'}")
-
-            # Only set other parameters if the band is enabled
-            if settings.get("enabled", False):
-                # Set frequency if provided
-                if "freq" in settings:
-                    # Convert frequency to normalized value (0-1)
-                    frequency = settings["freq"]
-                    if frequency < 20:
-                        frequency = 20  # Minimum frequency
-                    if frequency > 20000:
-                        frequency = 20000  # Maximum frequency
-
-                    # Convert to logarithmic scale (approximation)
-                    import math
-                    log_min = math.log10(20)  # 20 Hz
-                    log_max = math.log10(20000)  # 20 kHz
-                    log_freq = math.log10(frequency)
-                    normalized_value = (log_freq - log_min) / \
-                        (log_max - log_min)
-
-                    freq_param_name = f"{band_number} Frequency A"
-                    _ = ableton.send_command("set_device_parameter", {
-                        "track_index": track_index,
-                        "device_index": device_index,
-                        "parameter_name": freq_param_name,
-                        "value": normalized_value
-                    })
-                    results.append(f"Set {freq_param_name} to {frequency} Hz")
-
-                # Set gain if provided
-                if "gain" in settings:
-                    gain_param_name = f"{band_number} Gain A"
-                    _ = ableton.send_command("set_device_parameter", {
-                        "track_index": track_index,
-                        "device_index": device_index,
-                        "parameter_name": gain_param_name,
-                        "value": settings["gain"]
-                    })
-                    results.append(
-                        f"Set {gain_param_name} to {settings['gain']} dB")
-
-                # Set Q if provided
-                if "q" in settings:
-                    # Convert Q value to normalized value (0-1)
-                    # Assuming max Q is around 10
-                    normalized_q = settings["q"] / 10.0
-                    if normalized_q > 1.0:
-                        normalized_q = 1.0
-
-                    q_param_name = f"{band_number} Resonance A"
-                    _ = ableton.send_command("set_device_parameter", {
-                        "track_index": track_index,
-                        "device_index": device_index,
-                        "parameter_name": q_param_name,
-                        "value": normalized_q
-                    })
-                    results.append(f"Set {q_param_name} to {settings['q']}")
-
-                # Set filter type if provided
-                if "type" in settings:
-                    filter_param_name = f"{band_number} Filter Type A"
-                    _ = ableton.send_command("set_device_parameter", {
-                        "track_index": track_index,
-                        "device_index": device_index,
-                        "parameter_name": filter_param_name,
-                        "value": settings["type"]
-                    })
-                    results.append(
-                        f"Set {filter_param_name} to {settings['type']}")
-
-        return f"Applied '{preset_type}' preset to EQ Eight"
     except Exception as e:
         logger.error(f"Error applying EQ preset: {str(e)}")
         return f"Error applying EQ preset: {str(e)}"
