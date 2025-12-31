@@ -837,6 +837,67 @@ class AbletonMCP(ControlSurface):
             self.log_message(traceback.format_exc())
             raise
     
+    def _frequency_to_normalized(self, frequency, min_freq=20.0, max_freq=20000.0):
+        """Convert frequency in Hz to normalized value (0-1) using logarithmic scale"""
+        # Validate inputs
+        if frequency is None:
+            raise ValueError("Frequency must be provided")
+
+        try:
+            frequency = float(frequency)
+            min_freq = float(min_freq)
+            max_freq = float(max_freq)
+        except (ValueError, TypeError):
+            raise ValueError("Frequency values must be numeric")
+
+        if min_freq >= max_freq:
+            raise ValueError("Minimum frequency must be less than maximum frequency")
+
+        if min_freq <= 0:
+            raise ValueError("Minimum frequency must be positive for logarithmic scale")
+
+        if frequency < min_freq:
+            frequency = min_freq
+        if frequency > max_freq:
+            frequency = max_freq
+
+        # Convert to logarithmic scale
+        log_min = math.log10(min_freq)
+        log_max = math.log10(max_freq)
+        log_freq = math.log10(frequency)
+
+        return (log_freq - log_min) / (log_max - log_min)
+
+    def _normalized_to_frequency(self, normalized, min_freq=20.0, max_freq=20000.0):
+        """Convert normalized value (0-1) to frequency in Hz using logarithmic scale"""
+        # Validate inputs
+        if normalized is None:
+            raise ValueError("Normalized value must be provided")
+
+        try:
+            normalized = float(normalized)
+            min_freq = float(min_freq)
+            max_freq = float(max_freq)
+        except (ValueError, TypeError):
+            raise ValueError("Values must be numeric")
+
+        if min_freq >= max_freq:
+            raise ValueError("Minimum frequency must be less than maximum frequency")
+
+        if min_freq <= 0:
+            raise ValueError("Minimum frequency must be positive for logarithmic scale")
+
+        if normalized < 0.0:
+            normalized = 0.0
+        if normalized > 1.0:
+            normalized = 1.0
+
+        log_min = math.log10(min_freq)
+        log_max = math.log10(max_freq)
+
+        log_freq = normalized * (log_max - log_min) + log_min
+        return 10.0 ** log_freq
+
     def _find_browser_item_by_uri(self, browser_or_item, uri, max_depth=10, current_depth=0):
         """Find a browser item by its URI"""
         try:
@@ -1063,19 +1124,7 @@ class AbletonMCP(ControlSurface):
                     raise ValueError(f"Parameter '{freq_param_name}' not found")
                 
                 # Convert frequency value (Hz) to normalized value (0-1)
-                # This is a rough approximation, as the actual mapping is logarithmic
-                # For more precise control, we would need to implement the exact mapping function
-                # that Ableton uses, but this should work for basic functionality
-                if frequency < 20:
-                    frequency = 20  # Minimum frequency
-                if frequency > 20000:
-                    frequency = 20000  # Maximum frequency
-                
-                # Convert to logarithmic scale (approximation)
-                log_min = math.log10(20)  # 20 Hz
-                log_max = math.log10(20000)  # 20 kHz
-                log_freq = math.log10(frequency)
-                normalized_value = (log_freq - log_min) / (log_max - log_min)
+                normalized_value = self._frequency_to_normalized(frequency)
                 
                 freq_param.value = normalized_value
                 results["frequency"] = frequency
@@ -1164,6 +1213,7 @@ class AbletonMCP(ControlSurface):
                     results["filter_type"] = str(filter_param.value_items[filter_type])
             
             return {
+                # Return dictionary for server to parse
                 "band_index": band_index,
                 "parameters": results
             }
@@ -1366,16 +1416,7 @@ class AbletonMCP(ControlSurface):
                         
                         # Convert frequency to normalized value (0-1)
                         frequency = settings["freq"]
-                        if frequency < 20:
-                            frequency = 20  # Minimum frequency
-                        if frequency > 20000:
-                            frequency = 20000  # Maximum frequency
-                        
-                        # Convert to logarithmic scale (approximation)
-                        log_min = math.log10(20)  # 20 Hz
-                        log_max = math.log10(20000)  # 20 kHz
-                        log_freq = math.log10(frequency)
-                        normalized_value = (log_freq - log_min) / (log_max - log_min)
+                        normalized_value = self._frequency_to_normalized(frequency)
                         
                         freq_param.value = normalized_value
                         band_settings["freq"] = frequency
@@ -1459,6 +1500,7 @@ class AbletonMCP(ControlSurface):
                     applied_settings[f"band_{band_index}"] = band_settings
             
             return {
+                # Return dictionary for server to parse
                 "preset_type": preset_type,
                 "applied_settings": applied_settings
             }
