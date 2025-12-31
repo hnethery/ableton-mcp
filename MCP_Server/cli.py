@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Ableton MCP CLI - Command line interface for Ableton Live integration through MCP
+Ableton MCP CLI - Command line interface for Ableton Live integration through
+the Model Context Protocol
 """
 
 import argparse
@@ -32,7 +33,8 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         prog="ableton-mcp",
-        description="Ableton Live integration through the Model Context Protocol",
+        description="Ableton Live integration through the Model Context "
+                    "Protocol",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -74,7 +76,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     install_parser.add_argument(
         "--ableton-path",
         type=str,
-        help="Path to Ableton Live installation (optional, will try to auto-detect)")
+        help="Path to Ableton Live installation (optional, auto-detects)")
     install_parser.add_argument(
         "--force",
         action="store_true",
@@ -107,7 +109,8 @@ def show_info() -> None:
     except Exception as e:
         print(f"  ❌ Error listing tools: {e}")
 
-    print("\n💡 For more information, start the server and visit http://localhost:8000/docs")
+    print("\n💡 For more information, start the server and visit "
+          "http://localhost:8000/docs")
 
 
 def find_ableton_script_path() -> Optional[str]:
@@ -125,10 +128,14 @@ def find_ableton_script_path() -> Optional[str]:
             f"{home}/Music/Ableton/Live 10 Suite/Resources/MIDI Remote Scripts",
             f"{home}/Music/Ableton/Live 11/Resources/MIDI Remote Scripts",
             f"{home}/Music/Ableton/Live 10/Resources/MIDI Remote Scripts",
-            "/Applications/Ableton Live 11 Suite.app/Contents/App-Resources/MIDI Remote Scripts",
-            "/Applications/Ableton Live 10 Suite.app/Contents/App-Resources/MIDI Remote Scripts",
-            "/Applications/Ableton Live 11.app/Contents/App-Resources/MIDI Remote Scripts",
-            "/Applications/Ableton Live 10.app/Contents/App-Resources/MIDI Remote Scripts",
+            "/Applications/Ableton Live 11 Suite.app/Contents/App-Resources/"
+            "MIDI Remote Scripts",
+            "/Applications/Ableton Live 10 Suite.app/Contents/App-Resources/"
+            "MIDI Remote Scripts",
+            "/Applications/Ableton Live 11.app/Contents/App-Resources/"
+            "MIDI Remote Scripts",
+            "/Applications/Ableton Live 10.app/Contents/App-Resources/"
+            "MIDI Remote Scripts",
         ])
 
     # Windows paths
@@ -137,24 +144,36 @@ def find_ableton_script_path() -> Optional[str]:
         program_files_x86 = os.environ.get(
             "ProgramFiles(x86)", "C:\\Program Files (x86)")
         possible_paths.extend([
-            f"{program_files}\\Ableton\\Live 11 Suite\\Resources\\MIDI Remote Scripts",
-            f"{program_files}\\Ableton\\Live 10 Suite\\Resources\\MIDI Remote Scripts",
-            f"{program_files}\\Ableton\\Live 11\\Resources\\MIDI Remote Scripts",
-            f"{program_files}\\Ableton\\Live 10\\Resources\\MIDI Remote Scripts",
-            f"{program_files_x86}\\Ableton\\Live 11 Suite\\Resources\\MIDI Remote Scripts",
-            f"{program_files_x86}\\Ableton\\Live 10 Suite\\Resources\\MIDI Remote Scripts",
-            f"{program_files_x86}\\Ableton\\Live 11\\Resources\\MIDI Remote Scripts",
-            f"{program_files_x86}\\Ableton\\Live 10\\Resources\\MIDI Remote Scripts",
+            f"{program_files}\\Ableton\\Live 11 Suite\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files}\\Ableton\\Live 10 Suite\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files}\\Ableton\\Live 11\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files}\\Ableton\\Live 10\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files_x86}\\Ableton\\Live 11 Suite\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files_x86}\\Ableton\\Live 10 Suite\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files_x86}\\Ableton\\Live 11\\Resources\\"
+            "MIDI Remote Scripts",
+            f"{program_files_x86}\\Ableton\\Live 10\\Resources\\"
+            "MIDI Remote Scripts",
         ])
 
     # Linux paths
     elif sys.platform == "linux":
         home = os.path.expanduser("~")
         possible_paths.extend([
-            f"{home}/.config/ableton/Live 11 Suite/Resources/MIDI Remote Scripts",
-            f"{home}/.config/ableton/Live 10 Suite/Resources/MIDI Remote Scripts",
-            f"{home}/.config/ableton/Live 11/Resources/MIDI Remote Scripts",
-            f"{home}/.config/ableton/Live 10/Resources/MIDI Remote Scripts",
+            f"{home}/.config/ableton/Live 11 Suite/Resources/"
+            "MIDI Remote Scripts",
+            f"{home}/.config/ableton/Live 10 Suite/Resources/"
+            "MIDI Remote Scripts",
+            f"{home}/.config/ableton/Live 11/Resources/"
+            "MIDI Remote Scripts",
+            f"{home}/.config/ableton/Live 10/Resources/"
+            "MIDI Remote Scripts",
         ])
 
     # Check if any of the paths exist
@@ -177,19 +196,25 @@ def install_remote_script(
 
     if not os.path.exists(source_path):
         print(
-            f"❌ Error: Remote Script source directory not found at {source_path}")
+            f"❌ Error: Remote Script source directory not found at "
+            f"{source_path}")
         sys.exit(1)
 
     # Determine the target path (where to install in Ableton)
     target_base_path = ableton_path
     if not target_base_path:
+        print("🔍 Searching for Ableton Live Remote Scripts directory...")
         target_base_path = find_ableton_script_path()
         if not target_base_path:
-            print("❌ Error: Could not find Ableton Live Remote Scripts directory.")
+            print(
+                "❌ Error: Could not find Ableton Live Remote Scripts "
+                "directory.")
             print("Please specify the path using --ableton-path")
             sys.exit(1)
+        print(f"📂 Found Ableton Live directory: {target_base_path}")
 
-    target_path = os.path.join(target_base_path, "AbletonMCP_Remote_Script")
+    target_path = os.path.join(
+        target_base_path, "AbletonMCP_Remote_Script")
 
     # Check if the script is already installed
     if os.path.exists(target_path) and not force:
@@ -202,20 +227,30 @@ def install_remote_script(
 
     # Copy all files from source to target
     import shutil
-    for item in os.listdir(source_path):
-        source_item = os.path.join(source_path, item)
-        target_item = os.path.join(target_path, item)
+    file_count = 0
+    try:
+        for item in os.listdir(source_path):
+            source_item = os.path.join(source_path, item)
+            target_item = os.path.join(target_path, item)
 
-        if os.path.isfile(source_item):
-            shutil.copy2(source_item, target_item)
-            print(f"  ✅ Copied {item}")
-        elif os.path.isdir(source_item):
-            shutil.copytree(source_item, target_item, dirs_exist_ok=True)
-            print(f"  ✅ Copied directory {item}")
+            if os.path.isfile(source_item):
+                shutil.copy2(source_item, target_item)
+                file_count += 1
+            elif os.path.isdir(source_item):
+                shutil.copytree(source_item, target_item, dirs_exist_ok=True)
+                file_count += 1
+    except Exception as e:
+        print(f"❌ Error during installation: {e}")
+        sys.exit(1)
 
-    print(f"\n✨ Successfully installed Remote Script to {target_path}")
-    print("\n⚠️  IMPORTANT: You need to restart Ableton Live for the changes to take effect.")
-    print("👉 After restarting, enable the 'AbletonMCP_Remote_Script' in Ableton's MIDI preferences.")
+    print(f"✅ Copied {file_count} files to {target_path}")
+
+    print("\n✨ Installation Successful!")
+    print("\n⚠️  NEXT STEPS:")
+    print("  1. Restart Ableton Live.")
+    print("  2. Open Preferences > Link/Tempo/MIDI.")
+    print("  3. Select 'AbletonMCP_Remote_Script' in the Control Surface "
+          "list.")
 
 
 def main() -> None:
