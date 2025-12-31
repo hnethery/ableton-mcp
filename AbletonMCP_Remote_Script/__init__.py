@@ -1112,10 +1112,17 @@ class AbletonMCP(ControlSurface):
                     raise ValueError(f"Parameter '{q_param_name}' not found")
                 
                 # Convert Q value to normalized value (0-1)
-                # This is a rough approximation
-                normalized_q = q / 10.0  # Assuming max Q is around 10
-                if normalized_q > 1.0:
-                    normalized_q = 1.0
+                # EQ Eight Q range is approximately 0.1 to 18.0
+                if q < 0.1:
+                    q = 0.1
+                if q > 18.0:
+                    q = 18.0
+
+                # Convert to logarithmic scale (approximation)
+                log_min = math.log10(0.1)
+                log_max = math.log10(18.0)
+                log_q = math.log10(q)
+                normalized_q = (log_q - log_min) / (log_max - log_min)
                 
                 q_param.value = normalized_q
                 results["q"] = q
@@ -1404,9 +1411,17 @@ class AbletonMCP(ControlSurface):
                             raise ValueError(f"Parameter '{q_param_name}' not found")
                         
                         # Convert Q value to normalized value (0-1)
-                        normalized_q = settings["q"] / 10.0  # Assuming max Q is around 10
-                        if normalized_q > 1.0:
-                            normalized_q = 1.0
+                        q = settings["q"]
+                        if q < 0.1:
+                            q = 0.1
+                        if q > 18.0:
+                            q = 18.0
+
+                        # Convert to logarithmic scale (approximation)
+                        log_min = math.log10(0.1)
+                        log_max = math.log10(18.0)
+                        log_q = math.log10(q)
+                        normalized_q = (log_q - log_min) / (log_max - log_min)
                         
                         q_param.value = normalized_q
                         band_settings["q"] = settings["q"]
