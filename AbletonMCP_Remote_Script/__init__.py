@@ -1292,62 +1292,115 @@ class AbletonMCP(ControlSurface):
                 scale_param.value = scale
                 results["scale"] = scale
             
-            # Set mode if provided - Note: EQ Eight doesn't seem to have a "Mode" parameter
-            # We'll leave this in but it will likely fail
+            # Set mode if provided
             if mode is not None:
-                # Check if there's any parameter that might be the mode
-                mode_param = None
-                
-                # Try to find a parameter that might be the mode
-                for param in device.parameters:
-                    if "Mode" in param.name:
-                        mode_param = param
-                        break
-                
-                if mode_param is None:
-                    raise ValueError("Mode parameter not found")
-                
-                # Handle mode as string or index
-                if isinstance(mode, str):
-                    # Find the matching mode
-                    mode_index = None
-                    for i, item in enumerate(mode_param.value_items):
-                        if str(item).lower() == mode.lower():
-                            mode_index = i
+                # First check for global_mode property (LOM standard for EQ Eight)
+                if hasattr(device, 'global_mode'):
+                    mode_value = mode
+                    # Handle string conversion for global_mode property
+                    # 0: Stereo, 1: L/R, 2: M/S
+                    if isinstance(mode, str):
+                        mode_lower = mode.lower()
+                        if mode_lower == "stereo":
+                            mode_value = 0
+                        elif mode_lower == "l/r" or mode_lower == "l-r":
+                            mode_value = 1
+                        elif mode_lower == "m/s" or mode_lower == "m-s":
+                            mode_value = 2
+                        else:
+                            # Try to parse as integer
+                            try:
+                                mode_value = int(mode)
+                            except ValueError:
+                                pass
+                    
+                    try:
+                        device.global_mode = int(mode_value)
+
+                        # Map back to string for result
+                        mode_str = "Unknown"
+                        if device.global_mode == 0: mode_str = "Stereo"
+                        elif device.global_mode == 1: mode_str = "L/R"
+                        elif device.global_mode == 2: mode_str = "M/S"
+
+                        results["mode"] = mode_str
+                    except Exception as e:
+                        self.log_message(f"Error setting global_mode property: {e}")
+                        # Fallback to parameter search
+                        pass
+
+                # If mode result not set yet, try finding a parameter
+                if "mode" not in results:
+                    # Check if there's any parameter that might be the mode
+                    mode_param = None
+                    
+                    # Try to find a parameter that might be the mode
+                    for param in device.parameters:
+                        if "Mode" in param.name:
+                            mode_param = param
                             break
                     
-                    if mode_index is None:
-                        raise ValueError(f"Mode '{mode}' not found")
-                    
-                    mode_param.value = mode_index
-                    results["mode"] = str(mode_param.value_items[mode_index])
-                else:
-                    # Assume mode is an index
-                    if mode < 0 or mode >= len(mode_param.value_items):
-                        raise ValueError(f"Mode index {mode} out of range")
-                    
-                    mode_param.value = mode
-                    results["mode"] = str(mode_param.value_items[mode])
+                    if mode_param is not None:
+                        # Handle mode as string or index
+                        if isinstance(mode, str):
+                            # Find the matching mode
+                            mode_index = None
+                            for i, item in enumerate(mode_param.value_items):
+                                if str(item).lower() == mode.lower():
+                                    mode_index = i
+                                    break
+
+                            if mode_index is None:
+                                raise ValueError(f"Mode '{mode}' not found")
+
+                            mode_param.value = mode_index
+                            results["mode"] = str(mode_param.value_items[mode_index])
+                        else:
+                            # Assume mode is an index
+                            if mode < 0 or mode >= len(mode_param.value_items):
+                                raise ValueError(f"Mode index {mode} out of range")
+
+                            mode_param.value = mode
+                            results["mode"] = str(mode_param.value_items[mode])
+                    else:
+                        # If we previously failed setting global_mode property, report that error
+                        if hasattr(device, 'global_mode'):
+                             raise ValueError("Failed to set Mode: invalid value for global_mode property")
+                        else:
+                             raise ValueError("Mode parameter not found")
             
-            # Set oversampling if provided - Note: EQ Eight doesn't seem to have an "Oversampling" parameter
-            # We'll leave this in but it will likely fail
+            # Set oversampling if provided
             if oversampling is not None:
-                # Try to find a parameter that might be oversampling
-                oversampling_param = None
+                # First check for oversample property (LOM standard for EQ Eight)
+                if hasattr(device, 'oversample'):
+                    try:
+                        # Convert to 0 (Off) or 1 (On)
+                        oversample_val = 1 if oversampling else 0
+                        device.oversample = oversample_val
+                        results["oversampling"] = bool(oversample_val)
+                    except Exception as e:
+                        self.log_message(f"Error setting oversample property: {e}")
+                        pass
                 
-                for param in device.parameters:
-                    if "Oversampling" in param.name or "Hi Quality" in param.name:
-                        oversampling_param = param
-                        break
-                
-                if oversampling_param is not None:
-                    # Convert boolean to 0 or 1
-                    oversampling_value = 1 if oversampling else 0
-                    oversampling_param.value = oversampling_value
-                    results["oversampling"] = bool(oversampling)
-                else:
-                    self.log_message("Oversampling parameter not found for EQ Eight device")
-                    results["oversampling"] = "not_supported"
+                # If oversampling result not set yet, try finding a parameter
+                if "oversampling" not in results:
+                    # Try to find a parameter that might be oversampling
+                    oversampling_param = None
+
+                    for param in device.parameters:
+                        if "Oversampling" in param.name or "Hi Quality" in param.name:
+                            oversampling_param = param
+                            break
+
+                    if oversampling_param is not None:
+                        # Convert boolean to 0 or 1
+                        oversampling_value = 1 if oversampling else 0
+                        oversampling_param.value = oversampling_value
+                        results["oversampling"] = bool(oversampling)
+                    else:
+                        if not hasattr(device, 'oversample'):
+                            self.log_message("Oversampling parameter not found for EQ Eight device")
+                            results["oversampling"] = "not_supported"
             
             return {
                 "global_parameters": results
