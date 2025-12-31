@@ -145,15 +145,25 @@ def normalized_to_frequency(normalized_value):
 
 def q_to_normalized(q_value):
     """Convert Q value to normalized value (0-1)."""
-    # EQ Eight Q range is approximately 0.1 to 10
-    # This is a rough approximation
-    return min(1.0, max(0.0, q_value / 10.0))
+    # EQ Eight Q range is approximately 0.1 to 18.0
+    if q_value < 0.1:
+        q_value = 0.1
+    if q_value > 18.0:
+        q_value = 18.0
+
+    # Convert to logarithmic scale
+    log_min = math.log10(0.1)
+    log_max = math.log10(18.0)
+    log_q = math.log10(q_value)
+    return (log_q - log_min) / (log_max - log_min)
 
 def normalized_to_q(normalized_value):
     """Convert normalized value (0-1) to Q value."""
-    # EQ Eight Q range is approximately 0.1 to 10
-    # This is a rough approximation
-    return round(normalized_value * 10, 2)
+    # EQ Eight Q range is approximately 0.1 to 18.0
+    log_min = math.log10(0.1)
+    log_max = math.log10(18.0)
+    log_q = normalized_value * (log_max - log_min) + log_min
+    return round(10 ** log_q, 2)
 
 def test_precise_frequency_control(track_index, device_index):
     """Test precise frequency control for EQ bands."""
