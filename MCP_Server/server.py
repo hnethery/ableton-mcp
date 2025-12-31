@@ -4,6 +4,7 @@ import socket
 import json
 import logging
 import time
+import re
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, List, Union, Optional
@@ -12,6 +13,12 @@ from typing import AsyncIterator, Dict, Any, List, Union, Optional
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AbletonMCPServer")
+
+# Regex to find JSON structural characters while skipping strings
+# Matches:
+# 1. A string: "..." (handling escaped quotes)
+# 2. A structural character: { } [ ]
+JSON_TOKEN_PATTERN = re.compile(rb'"(?:[^"\\\\]|\\\\.)*"|([\[\]{}])')
 
 
 @dataclass
@@ -51,6 +58,9 @@ class AbletonConnection:
         # Increased timeout for operations that might take longer
         sock.settimeout(15.0)
 
+        # Optimization: Track brace balance to avoid premature parsing
+        balance = 0
+
         try:
             while True:
                 try:
@@ -63,10 +73,21 @@ class AbletonConnection:
 
                     chunks.append(chunk)
 
+                    # Update balance
+                    for match in JSON_TOKEN_PATTERN.finditer(chunk):
+                        token = match.group(1)
+                        if token:
+                            if token == b'{' or token == b'[':
+                                balance += 1
+                            elif token == b'}' or token == b']':
+                                balance -= 1
+
                     # Check if we've received a complete JSON object
-                    # Optimization: Only attempt to parse if the last byte looks like the end of a JSON object/array
+                    # Optimization: Only attempt to parse if:
+                    # 1. The last byte looks like the end of a JSON object/array
+                    # 2. The brace balance is zero
                     # This avoids O(N^2) parsing attempts for large payloads
-                    if chunk.rstrip().endswith((b'}', b']')):
+                    if balance == 0 and chunk.rstrip().endswith((b'}', b']')):
                         try:
                             data = b''.join(chunks)
                             json.loads(data.decode('utf-8'))
@@ -126,7 +147,7 @@ class AbletonConnection:
 
             # Send the command
             self.sock.sendall(json.dumps(command).encode('utf-8'))
-            logger.info(f"Command sent, waiting for response...")
+            logger.info("Command sent, waiting for response...")
 
             # Set timeout based on command type
             timeout = 15.0 if is_modifying_command else 10.0
@@ -176,7 +197,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
         logger.info("AbletonMCP server starting up")
 
         try:
-            ableton = get_ableton_connection()
+            get_ableton_connection()
             logger.info("Successfully connected to Ableton on startup")
         except Exception as e:
             logger.warning(
