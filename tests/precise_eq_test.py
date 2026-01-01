@@ -129,17 +129,17 @@ def setup_test_environment():
 
 def frequency_to_normalized(freq_hz):
     """Convert frequency in Hz to normalized value (0-1)."""
-    # EQ Eight frequency range is approximately 20Hz to 20kHz on a logarithmic scale
-    log_min = math.log10(20)  # 20 Hz
-    log_max = math.log10(20000)  # 20 kHz
-    log_freq = math.log10(max(20, min(20000, freq_hz)))  # Clamp to valid range
+    # EQ Eight frequency range is 10Hz to 22kHz on a logarithmic scale
+    log_min = math.log10(10)  # 10 Hz
+    log_max = math.log10(22000)  # 22 kHz
+    log_freq = math.log10(max(10, min(22000, freq_hz)))  # Clamp to valid range
     return (log_freq - log_min) / (log_max - log_min)
 
 def normalized_to_frequency(normalized_value):
     """Convert normalized value (0-1) to frequency in Hz."""
-    # EQ Eight frequency range is approximately 20Hz to 20kHz on a logarithmic scale
-    log_min = math.log10(20)  # 20 Hz
-    log_max = math.log10(20000)  # 20 kHz
+    # EQ Eight frequency range is 10Hz to 22kHz on a logarithmic scale
+    log_min = math.log10(10)  # 10 Hz
+    log_max = math.log10(22000)  # 22 kHz
     log_freq = normalized_value * (log_max - log_min) + log_min
     return round(10 ** log_freq)
 

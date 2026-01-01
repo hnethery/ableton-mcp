@@ -837,8 +837,11 @@ class AbletonMCP(ControlSurface):
             self.log_message(traceback.format_exc())
             raise
     
-    def _frequency_to_normalized(self, frequency, min_freq=20.0, max_freq=20000.0):
-        """Convert frequency in Hz to normalized value (0-1) using logarithmic scale"""
+    def _frequency_to_normalized(self, frequency, min_freq=10.0, max_freq=22000.0):
+        """
+        Convert frequency in Hz to normalized value (0-1) using logarithmic scale.
+        Default range is 10Hz to 22kHz which matches Ableton's EQ Eight.
+        """
         # Validate inputs
         if frequency is None:
             raise ValueError("Frequency must be provided")
@@ -868,8 +871,11 @@ class AbletonMCP(ControlSurface):
 
         return (log_freq - log_min) / (log_max - log_min)
 
-    def _normalized_to_frequency(self, normalized, min_freq=20.0, max_freq=20000.0):
-        """Convert normalized value (0-1) to frequency in Hz using logarithmic scale"""
+    def _normalized_to_frequency(self, normalized, min_freq=10.0, max_freq=22000.0):
+        """
+        Convert normalized value (0-1) to frequency in Hz using logarithmic scale.
+        Default range is 10Hz to 22kHz which matches Ableton's EQ Eight.
+        """
         # Validate inputs
         if normalized is None:
             raise ValueError("Normalized value must be provided")
