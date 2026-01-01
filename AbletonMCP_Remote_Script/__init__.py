@@ -905,7 +905,12 @@ class AbletonMCP(ControlSurface):
         return 10.0 ** log_freq
 
     def _q_to_normalized(self, q, min_q=0.1, max_q=18.0):
-        """Convert Q value to normalized value (0-1) using logarithmic scale"""
+        """
+        Convert Q value to normalized value (0-1) using logarithmic scale.
+
+        EQ Eight Q range is 0.1 to 18.0.
+        This uses a logarithmic mapping which is more accurate than linear approximation.
+        """
         if q is None:
             raise ValueError("Q must be provided")
 
