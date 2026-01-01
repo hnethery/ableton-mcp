@@ -839,8 +839,10 @@ class AbletonMCP(ControlSurface):
     
     def _frequency_to_normalized(self, frequency, min_freq=10.0, max_freq=22000.0):
         """
-        Convert frequency in Hz to normalized value (0-1) using logarithmic scale.
-        Default range is 10Hz to 22kHz which matches Ableton's EQ Eight.
+        Convert frequency in Hz to normalized value (0-1) using precise logarithmic scale.
+
+        EQ Eight frequency range is 10Hz to 22kHz.
+        Formula: normalized = (log(freq) - log(min)) / (log(max) - log(min))
         """
         # Validate inputs
         if frequency is None:
@@ -873,8 +875,10 @@ class AbletonMCP(ControlSurface):
 
     def _normalized_to_frequency(self, normalized, min_freq=10.0, max_freq=22000.0):
         """
-        Convert normalized value (0-1) to frequency in Hz using logarithmic scale.
-        Default range is 10Hz to 22kHz which matches Ableton's EQ Eight.
+        Convert normalized value (0-1) to frequency in Hz using precise logarithmic scale.
+
+        EQ Eight frequency range is 10Hz to 22kHz.
+        Formula: freq = 10 ^ (normalized * (log(max) - log(min)) + log(min))
         """
         # Validate inputs
         if normalized is None:
@@ -1180,7 +1184,7 @@ class AbletonMCP(ControlSurface):
                 if freq_param is None:
                     raise ValueError(f"Parameter '{freq_param_name}' not found")
                 
-                # Convert frequency value (Hz) to normalized value (0-1)
+                # Convert frequency value (Hz) to normalized value (0-1) using precise logarithmic mapping
                 normalized_value = self._frequency_to_normalized(frequency)
                 
                 freq_param.value = normalized_value
@@ -1522,7 +1526,7 @@ class AbletonMCP(ControlSurface):
                         if freq_param is None:
                             raise ValueError(f"Parameter '{freq_param_name}' not found")
                         
-                        # Convert frequency to normalized value (0-1)
+                        # Convert frequency to normalized value (0-1) using precise logarithmic mapping
                         frequency = settings["freq"]
                         normalized_value = self._frequency_to_normalized(frequency)
                         
