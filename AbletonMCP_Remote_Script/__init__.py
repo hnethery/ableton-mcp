@@ -1382,11 +1382,21 @@ class AbletonMCP(ControlSurface):
             
             # Set oversampling if provided
             if oversampling is not None:
+                # Helper to convert input to boolean
+                oversampling_bool = oversampling
+                if isinstance(oversampling, str):
+                    if oversampling.lower() in ["false", "off", "0", "no"]:
+                        oversampling_bool = False
+                    else:
+                        oversampling_bool = True
+                elif isinstance(oversampling, int):
+                    oversampling_bool = bool(oversampling)
+
+                oversample_val = 1 if oversampling_bool else 0
+
                 # First check for oversample property (LOM standard for EQ Eight)
                 if hasattr(device, 'oversample'):
                     try:
-                        # Convert to 0 (Off) or 1 (On)
-                        oversample_val = 1 if oversampling else 0
                         device.oversample = oversample_val
                         results["oversampling"] = bool(oversample_val)
                     except Exception as e:
@@ -1404,10 +1414,8 @@ class AbletonMCP(ControlSurface):
                             break
 
                     if oversampling_param is not None:
-                        # Convert boolean to 0 or 1
-                        oversampling_value = 1 if oversampling else 0
-                        oversampling_param.value = oversampling_value
-                        results["oversampling"] = bool(oversampling)
+                        oversampling_param.value = oversample_val
+                        results["oversampling"] = bool(oversample_val)
                     else:
                         if not hasattr(device, 'oversample'):
                             self.log_message("Oversampling parameter not found for EQ Eight device")
