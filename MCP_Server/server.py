@@ -8,6 +8,7 @@ import re
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, List, Union, Optional
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -216,7 +217,9 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
 # Create the MCP server with lifespan support
 mcp = FastMCP(
     "AbletonMCP",
-    lifespan=server_lifespan
+    lifespan=server_lifespan,
+    host=os.environ.get("MCP_HOST", "127.0.0.1"),
+    port=int(os.environ.get("MCP_PORT", "8000"))
 )
 
 # Global connection for resources
@@ -831,13 +834,16 @@ def set_eq_band(ctx: Context, track_index: int, device_index: int, band_index: i
         parameters = result.get("parameters", {})
 
         if "frequency" in parameters:
-            results.append(f"Set band {band_index+1} Frequency to {parameters['frequency']} Hz")
+            results.append(
+                f"Set band {band_index+1} Frequency to {parameters['frequency']} Hz")
         if "gain" in parameters:
-            results.append(f"Set band {band_index+1} Gain to {parameters['gain']} dB")
+            results.append(
+                f"Set band {band_index+1} Gain to {parameters['gain']} dB")
         if "q" in parameters:
             results.append(f"Set band {band_index+1} Q to {parameters['q']}")
         if "filter_type" in parameters:
-            results.append(f"Set band {band_index+1} Filter Type to {parameters['filter_type']}")
+            results.append(
+                f"Set band {band_index+1} Filter Type to {parameters['filter_type']}")
 
         if not results:
             return "No parameters were set or operation failed silently"
@@ -921,9 +927,10 @@ def apply_eq_preset(ctx: Context, track_index: int, device_index: int, preset_ty
     """
     try:
         # Validate preset type locally
-        valid_presets = ["low_cut", "high_cut", "low_shelf", "high_shelf", "bell", "notch", "flat"]
+        valid_presets = ["low_cut", "high_cut", "low_shelf",
+                         "high_shelf", "bell", "notch", "flat"]
         if preset_type not in valid_presets:
-             return f"Error: Unknown preset type '{preset_type}'. Available presets: {', '.join(valid_presets)}"
+            return f"Error: Unknown preset type '{preset_type}'. Available presets: {', '.join(valid_presets)}"
 
         ableton = get_ableton_connection()
 
@@ -1000,14 +1007,8 @@ def set_track_volume(ctx: Context, track_index: int, value: float) -> str:
 
 def main():
     """Run the MCP server"""
-    import os
-
-    # Get host and port from environment variables (set by CLI)
-    host = os.environ.get("MCP_HOST", "127.0.0.1")
-    port = int(os.environ.get("MCP_PORT", "8000"))
-
     # Start the server
-    mcp.serve(host=host, port=port)
+    mcp.run()
 
 
 if __name__ == "__main__":

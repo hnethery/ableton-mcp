@@ -96,7 +96,7 @@ def show_version() -> None:
 def show_info() -> None:
     """Show information about the MCP server."""
     print(f"ℹ️  Ableton MCP v{get_version()}")
-    print("\n📋 Available MCP functions:")
+    print("🎹 Ableton Live integration through the Model Context Protocol")
 
     # Get all registered functions from the MCP server
     async def get_tools():
@@ -104,10 +104,64 @@ def show_info() -> None:
 
     try:
         tools = asyncio.run(get_tools())
-        for tool in tools:
-            print(f"  ✨ {tool.name}")
+
+        # Define categories
+        categories = {
+            "Session & Transport": [
+                "get_session_info", "start_playback", "stop_playback",
+                "set_tempo"
+            ],
+            "Tracks & Mixing": [
+                "get_track_info", "create_midi_track", "create_return_track",
+                "set_track_name", "set_track_volume", "set_send_level"
+            ],
+            "Clips & Notes": [
+                "create_clip", "fire_clip", "stop_clip",
+                "add_notes_to_clip", "set_clip_name"
+            ],
+            "Devices & Effects": [
+                "get_device_parameters", "set_device_parameter",
+                "load_instrument_or_effect", "set_eq_band",
+                "set_eq_global", "apply_eq_preset"
+            ],
+            "Browser": [
+                "get_browser_tree", "get_browser_items_at_path",
+                "load_drum_kit"
+            ]
+        }
+
+        # Helper to get description summary
+        def get_summary(tool):
+            if not tool.description:
+                return ""
+            # Get first line and strip
+            return tool.description.strip().split('\n')[0].strip()
+
+        # Map tools by name for easy lookup
+        tool_map = {t.name: t for t in tools}
+
+        # Track which tools we've displayed
+        displayed_tools = set()
+
+        for category, tool_names in categories.items():
+            print(f"\n📂 {category}")
+            for name in tool_names:
+                if name in tool_map:
+                    tool = tool_map[name]
+                    summary = get_summary(tool)
+                    print(f"  ✨ {name:<27} {summary}")
+                    displayed_tools.add(name)
+
+        # Display any remaining tools (uncategorized)
+        remaining = [t for t in tools if t.name not in displayed_tools]
+        if remaining:
+            print(f"\n🔧 Other Tools")
+            for tool in remaining:
+                summary = get_summary(tool)
+                print(f"  ✨ {tool.name:<27} {summary}")
+
     except Exception as e:
-        print(f"  ❌ Error listing tools: {e}")
+        print(f"\n❌ Error listing tools: {e}")
 
     print("\n💡 For more information, start the server and visit "
           "http://localhost:8000/docs")
