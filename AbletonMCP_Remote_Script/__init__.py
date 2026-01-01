@@ -1305,7 +1305,8 @@ class AbletonMCP(ControlSurface):
             
             # Set mode if provided
             if mode is not None:
-                # First check for global_mode property (LOM standard for EQ Eight)
+                # First check for global_mode property (LOM standard for EQ Eight).
+                # EQ Eight exposes the mode (Stereo/LR/MS) via this property, not a parameter.
                 if hasattr(device, 'global_mode'):
                     mode_value = mode
                     # Handle string conversion for global_mode property
