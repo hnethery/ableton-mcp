@@ -12,6 +12,13 @@ import asyncio
 from typing import List, Optional
 import importlib.metadata
 
+# Rich imports for UX
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich import box
+from rich.text import Text
+
 from .server import mcp, main as server_main
 
 # Configure logging
@@ -19,6 +26,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AbletonMCP-CLI")
+
+# Initialize Rich console
+console = Console()
 
 
 def get_version() -> str:
@@ -88,15 +98,20 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
 def show_version() -> None:
     """Show version information."""
-    print(f"🎵 Ableton MCP v{get_version()}")
-    print("🎹 Ableton Live integration through the Model Context Protocol")
-    print("🔗 https://github.com/itsuzef/ableton-mcp")
+    version_text = Text()
+    version_text.append(f"🎵 Ableton MCP v{get_version()}\n", style="bold cyan")
+    version_text.append("🎹 Ableton Live integration through the Model Context Protocol\n", style="italic")
+    version_text.append("🔗 https://github.com/itsuzef/ableton-mcp", style="blue underline")
+
+    console.print(Panel(version_text, border_style="cyan"))
 
 
 def show_info() -> None:
     """Show information about the MCP server."""
-    print(f"ℹ️  Ableton MCP v{get_version()}")
-    print("🎹 Ableton Live integration through the Model Context Protocol")
+    console.print(Panel.fit(
+        f"[bold]Ableton MCP[/bold] v{get_version()}\n[italic]Ableton Live integration through the Model Context Protocol[/italic]",
+        border_style="cyan"
+    ))
 
     # Get all registered functions from the MCP server
     async def get_tools():
@@ -144,27 +159,48 @@ def show_info() -> None:
         displayed_tools = set()
 
         for category, tool_names in categories.items():
-            print(f"\n📂 {category}")
+            # Create a table for each category
+            table = Table(box=None, show_header=False, padding=(0, 2))
+            table.add_column("Tool", style="cyan bold", width=30)
+            table.add_column("Description")
+
+            has_items = False
             for name in tool_names:
                 if name in tool_map:
                     tool = tool_map[name]
                     summary = get_summary(tool)
-                    print(f"  ✨ {name:<27} {summary}")
+                    table.add_row(name, summary)
                     displayed_tools.add(name)
+                    has_items = True
+
+            if has_items:
+                console.print()
+                console.rule(f"[bold blue]📂 {category}[/bold blue]")
+                console.print(table)
 
         # Display any remaining tools (uncategorized)
         remaining = [t for t in tools if t.name not in displayed_tools]
         if remaining:
-            print(f"\n🔧 Other Tools")
+            console.print()
+            console.rule("[bold yellow]🔧 Other Tools[/bold yellow]")
+            table = Table(box=None, show_header=False, padding=(0, 2))
+            table.add_column("Tool", style="cyan bold", width=30)
+            table.add_column("Description")
+
             for tool in remaining:
                 summary = get_summary(tool)
-                print(f"  ✨ {tool.name:<27} {summary}")
+                table.add_row(tool.name, summary)
+
+            console.print(table)
 
     except Exception as e:
-        print(f"\n❌ Error listing tools: {e}")
+        console.print(Panel(f"❌ Error listing tools: {e}", border_style="red"))
 
-    print("\n💡 For more information, start the server and visit "
-          "http://localhost:8000/docs")
+    console.print()
+    console.print(Panel(
+        "💡 For more information, start the server and visit [link=http://localhost:8000/docs]http://localhost:8000/docs[/link]",
+        border_style="yellow"
+    ))
 
 
 def find_ableton_script_path() -> Optional[str]:
@@ -241,7 +277,7 @@ def find_ableton_script_path() -> Optional[str]:
 def install_remote_script(
         ableton_path: Optional[str] = None, force: bool = False) -> None:
     """Install the Ableton Live Remote Script."""
-    print("📦 Installing Ableton Live Remote Script...")
+    console.print("[bold]📦 Installing Ableton Live Remote Script...[/bold]")
 
     # Determine the source path (where the Remote Script files are in our
     # package)
@@ -249,31 +285,31 @@ def install_remote_script(
     source_path = os.path.join(package_dir, "AbletonMCP_Remote_Script")
 
     if not os.path.exists(source_path):
-        print(
-            f"❌ Error: Remote Script source directory not found at "
-            f"{source_path}")
+        console.print(
+            f"[bold red]❌ Error: Remote Script source directory not found at "
+            f"{source_path}[/bold red]")
         sys.exit(1)
 
     # Determine the target path (where to install in Ableton)
     target_base_path = ableton_path
     if not target_base_path:
-        print("🔍 Searching for Ableton Live Remote Scripts directory...")
+        console.print("🔍 Searching for Ableton Live Remote Scripts directory...")
         target_base_path = find_ableton_script_path()
         if not target_base_path:
-            print(
-                "❌ Error: Could not find Ableton Live Remote Scripts "
-                "directory.")
-            print("Please specify the path using --ableton-path")
+            console.print(
+                "[bold red]❌ Error: Could not find Ableton Live Remote Scripts "
+                "directory.[/bold red]")
+            console.print("Please specify the path using --ableton-path")
             sys.exit(1)
-        print(f"📂 Found Ableton Live directory: {target_base_path}")
+        console.print(f"📂 Found Ableton Live directory: [cyan]{target_base_path}[/cyan]")
 
     target_path = os.path.join(
         target_base_path, "AbletonMCP_Remote_Script")
 
     # Check if the script is already installed
     if os.path.exists(target_path) and not force:
-        print(f"⚠️  Remote Script is already installed at {target_path}")
-        print("Use --force to reinstall")
+        console.print(f"[yellow]⚠️  Remote Script is already installed at {target_path}[/yellow]")
+        console.print("Use --force to reinstall")
         return
 
     # Create the target directory if it doesn't exist
@@ -294,17 +330,22 @@ def install_remote_script(
                 shutil.copytree(source_item, target_item, dirs_exist_ok=True)
                 file_count += 1
     except Exception as e:
-        print(f"❌ Error during installation: {e}")
+        console.print(f"[bold red]❌ Error during installation: {e}[/bold red]")
         sys.exit(1)
 
-    print(f"✅ Copied {file_count} files to {target_path}")
+    console.print(f"[green]✅ Copied {file_count} files to {target_path}[/green]")
 
-    print("\n✨ Installation Successful!")
-    print("\n⚠️  NEXT STEPS:")
-    print("  1. Restart Ableton Live.")
-    print("  2. Open Preferences > Link/Tempo/MIDI.")
-    print("  3. Select 'AbletonMCP_Remote_Script' in the Control Surface "
-          "list.")
+    console.print("\n[bold green]✨ Installation Successful![/bold green]")
+
+    steps = [
+        "Restart Ableton Live.",
+        "Open Preferences > Link/Tempo/MIDI.",
+        "Select 'AbletonMCP_Remote_Script' in the Control Surface list."
+    ]
+
+    console.print("\n[bold yellow]⚠️  NEXT STEPS:[/bold yellow]")
+    for i, step in enumerate(steps, 1):
+        console.print(f"  {i}. {step}")
 
 
 def main() -> None:
@@ -317,12 +358,13 @@ def main() -> None:
             logging.getLogger().setLevel(logging.DEBUG)
 
         # Start the server
-        print(
-            f"🚀 Starting Ableton MCP server v{
-                get_version()} on http://{
-                args.host}:{
-                args.port}")
-        print("🛑 Press Ctrl+C to stop the server")
+        console.print(Panel(
+            f"🚀 Starting [bold]Ableton MCP server[/bold] v{get_version()}\n"
+            f"📡 Listening on [cyan]http://{args.host}:{args.port}[/cyan]\n\n"
+            "🛑 Press [bold red]Ctrl+C[/bold red] to stop the server",
+            border_style="green",
+            title="Server Starting"
+        ))
 
         # Set environment variables for the server
         os.environ["MCP_HOST"] = args.host
