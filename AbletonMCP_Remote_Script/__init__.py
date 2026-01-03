@@ -140,7 +140,7 @@ class AbletonMCP(ControlSurface):
         """Handle communication with a connected client"""
         self.log_message("Client handler started")
         client.settimeout(None)  # No timeout for client socket
-        buffer = ''  # Changed from b'' to '' for Python 2
+        buffer_chunks = []  # Use list for O(1) appends instead of O(N) string concatenation
 
         try:
             while self.running:
@@ -154,23 +154,30 @@ class AbletonMCP(ControlSurface):
                         break
 
                     # Accumulate data in buffer with explicit encoding/decoding
+                    chunk = None
                     try:
                         # Python 3: data is bytes, decode to string
-                        buffer += data.decode('utf-8')
+                        chunk = data.decode('utf-8')
                     except AttributeError:
                         # Python 2: data is already string
-                        buffer += data
+                        chunk = data
+
+                    buffer_chunks.append(chunk)
 
                     try:
                         # Optimization: Only attempt to parse if the buffer looks
                         # like a complete JSON object to avoid O(N^2) parsing.
                         # We use a custom check to avoid buffer.strip() which creates a full copy.
-                        if not self._is_complete_json_candidate(buffer):
+                        # Also avoids joining chunks until we have a likely candidate.
+                        if not self._is_complete_json_candidate(buffer_chunks):
                             continue
 
+                        # Join chunks only when we have a candidate
+                        full_buffer = "".join(buffer_chunks)
+
                         # Try to parse command from buffer
-                        command = json.loads(buffer)  # Removed decode('utf-8')
-                        buffer = ''  # Clear buffer after successful parse
+                        command = json.loads(full_buffer)
+                        buffer_chunks = []  # Clear buffer after successful parse
 
                         self.log_message("Received command: " +
                                          str(command.get("type", "unknown")))
@@ -222,28 +229,26 @@ class AbletonMCP(ControlSurface):
                 pass
             self.log_message("Client handler stopped")
 
-    def _is_complete_json_candidate(self, buffer_str):
+    def _is_complete_json_candidate(self, chunks):
         """
-        Check if buffer ends with } ignoring trailing whitespace.
-        This is an optimization to avoid calling buffer.strip() which creates a full copy
-        of the buffer string, causing significant memory allocation overhead for large payloads.
+        Check if the sequence of chunks ends with '}' ignoring trailing whitespace.
+        Avoids joining chunks just to check the end.
         """
-        if not buffer_str:
+        if not chunks:
             return False
 
-        # Fast check for no trailing whitespace
-        if buffer_str.endswith('}'):
-            return True
+        # Scan chunks from end to start
+        for i in range(len(chunks) - 1, -1, -1):
+            chunk = chunks[i]
+            if not chunk:
+                continue
 
-        # Scan backwards for non-whitespace
-        # This is O(W) where W is the amount of trailing whitespace, instead of O(N)
-        idx = len(buffer_str) - 1
-        while idx >= 0:
-            char = buffer_str[idx]
-            # Check for whitespace (space, tab, newline, return)
-            if char != ' ' and char != '\t' and char != '\r' and char != '\n':
-                return char == '}'
-            idx -= 1
+            # Scan characters in chunk from end to start
+            for j in range(len(chunk) - 1, -1, -1):
+                char = chunk[j]
+                # Check for whitespace (space, tab, newline, return)
+                if char != ' ' and char != '\t' and char != '\r' and char != '\n':
+                    return char == '}'
 
         return False
 
