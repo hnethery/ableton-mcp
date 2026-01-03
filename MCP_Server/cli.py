@@ -16,7 +16,6 @@ import importlib.metadata
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich import box
 from rich.text import Text
 
 from .server import mcp, main as server_main
@@ -100,8 +99,10 @@ def show_version() -> None:
     """Show version information."""
     version_text = Text()
     version_text.append(f"🎵 Ableton MCP v{get_version()}\n", style="bold cyan")
-    version_text.append("🎹 Ableton Live integration through the Model Context Protocol\n", style="italic")
-    version_text.append("🔗 https://github.com/itsuzef/ableton-mcp", style="blue underline")
+    version_text.append(
+        "🎹 Ableton Live integration through the Model Context Protocol\n", style="italic")
+    version_text.append(
+        "🔗 https://github.com/itsuzef/ableton-mcp", style="blue underline")
 
     console.print(Panel(version_text, border_style="cyan"))
 
@@ -293,22 +294,38 @@ def install_remote_script(
     # Determine the target path (where to install in Ableton)
     target_base_path = ableton_path
     if not target_base_path:
-        console.print("🔍 Searching for Ableton Live Remote Scripts directory...")
+        console.print(
+            "🔍 Searching for Ableton Live Remote Scripts directory...")
         target_base_path = find_ableton_script_path()
         if not target_base_path:
             console.print(
                 "[bold red]❌ Error: Could not find Ableton Live Remote Scripts "
                 "directory.[/bold red]")
-            console.print("Please specify the path using --ableton-path")
+            console.print(
+                "\n[yellow]Please specify the path using --ableton-path[/yellow]")
+            console.print("Examples:")
+            if sys.platform == "darwin":
+                console.print(
+                    "  --ableton-path \"/Applications/Ableton Live 11 Suite.app/"
+                    "Contents/App-Resources/MIDI Remote Scripts\"")
+            elif sys.platform == "win32":
+                console.print(
+                    "  --ableton-path \"C:\\Program Files\\Ableton\\Live 11 Suite\\"
+                    "Resources\\MIDI Remote Scripts\"")
+            else:
+                console.print(
+                    "  --ableton-path \"/path/to/ableton/MIDI Remote Scripts\"")
             sys.exit(1)
-        console.print(f"📂 Found Ableton Live directory: [cyan]{target_base_path}[/cyan]")
+        console.print(
+            f"📂 Found Ableton Live directory: [cyan]{target_base_path}[/cyan]")
 
     target_path = os.path.join(
         target_base_path, "AbletonMCP_Remote_Script")
 
     # Check if the script is already installed
     if os.path.exists(target_path) and not force:
-        console.print(f"[yellow]⚠️  Remote Script is already installed at {target_path}[/yellow]")
+        console.print(
+            f"[yellow]⚠️  Remote Script is already installed at {target_path}[/yellow]")
         console.print("Use --force to reinstall")
         return
 
@@ -333,19 +350,25 @@ def install_remote_script(
         console.print(f"[bold red]❌ Error during installation: {e}[/bold red]")
         sys.exit(1)
 
-    console.print(f"[green]✅ Copied {file_count} files to {target_path}[/green]")
-
-    console.print("\n[bold green]✨ Installation Successful![/bold green]")
+    console.print(
+        f"[green]✅ Copied {file_count} files to {target_path}[/green]")
 
     steps = [
         "Restart Ableton Live.",
         "Open Preferences > Link/Tempo/MIDI.",
-        "Select 'AbletonMCP_Remote_Script' in the Control Surface list."
+        "Select [bold cyan]'AbletonMCP_Remote_Script'[/bold cyan] in the Control Surface list."
     ]
 
-    console.print("\n[bold yellow]⚠️  NEXT STEPS:[/bold yellow]")
+    steps_text = Text()
     for i, step in enumerate(steps, 1):
-        console.print(f"  {i}. {step}")
+        steps_text.append_text(Text.from_markup(f"{i}. {step}\n"))
+
+    console.print(Panel(
+        steps_text,
+        title="[bold green]✨ Installation Successful![/bold green]",
+        border_style="green",
+        subtitle="[bold yellow]⚠️  NEXT STEPS[/bold yellow]"
+    ))
 
 
 def main() -> None:
