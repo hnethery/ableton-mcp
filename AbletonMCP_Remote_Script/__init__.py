@@ -243,12 +243,11 @@ class AbletonMCP(ControlSurface):
             if not chunk:
                 continue
 
-            # Scan characters in chunk from end to start
-            for j in range(len(chunk) - 1, -1, -1):
-                char = chunk[j]
-                # Check for whitespace (space, tab, newline, return)
-                if char != ' ' and char != '\t' and char != '\r' and char != '\n':
-                    return char == '}'
+            # Optimization: Use rstrip() which is implemented in C and much faster
+            # than manual iteration in Python.
+            stripped = chunk.rstrip()
+            if stripped:
+                return stripped.endswith('}')
 
         return False
 
