@@ -28,6 +28,17 @@ def create_instance(c_instance):
 class AbletonMCP(ControlSurface):
     """AbletonMCP Remote Script for Ableton Live"""
 
+    # Optimization: Use a set for O(1) lookups instead of list's O(N)
+    MAIN_THREAD_COMMANDS = frozenset([
+        "create_midi_track", "set_track_name",
+        "create_clip", "add_notes_to_clip", "set_clip_name",
+        "set_tempo", "fire_clip", "stop_clip",
+        "start_playback", "stop_playback", "load_browser_item",
+        "create_return_track", "set_send_level", "set_track_volume"
+    ])
+
+    DEBUG = False
+
     def __init__(self, c_instance):
         """Initialize the control surface"""
         ControlSurface.__init__(self, c_instance)
@@ -179,8 +190,9 @@ class AbletonMCP(ControlSurface):
                         command = json.loads(full_buffer)
                         buffer_chunks = []  # Clear buffer after successful parse
 
-                        self.log_message("Received command: " +
-                                         str(command.get("type", "unknown")))
+                        if self.DEBUG:
+                            self.log_message("Received command: " +
+                                             str(command.get("type", "unknown")))
 
                         # Process the command and get response
                         response = self._process_command(command)
@@ -270,10 +282,7 @@ class AbletonMCP(ControlSurface):
                 track_index = params.get("track_index", 0)
                 response["result"] = self._get_track_info(track_index)
             # Commands that modify Live's state should be scheduled on the main thread
-            elif command_type in ["create_midi_track", "set_track_name",
-                                  "create_clip", "add_notes_to_clip", "set_clip_name",
-                                  "set_tempo", "fire_clip", "stop_clip",
-                                  "start_playback", "stop_playback", "load_browser_item", "create_return_track", "set_send_level", "set_track_volume"]:
+            elif command_type in self.MAIN_THREAD_COMMANDS:
                 # Use a thread-safe approach with a response queue
                 response_queue = queue.Queue()
 
