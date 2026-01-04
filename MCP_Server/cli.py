@@ -294,9 +294,9 @@ def install_remote_script(
     # Determine the target path (where to install in Ableton)
     target_base_path = ableton_path
     if not target_base_path:
-        console.print(
-            "🔍 Searching for Ableton Live Remote Scripts directory...")
-        target_base_path = find_ableton_script_path()
+        with console.status("[bold cyan]🔍 Searching for Ableton Live Remote Scripts directory...[/bold cyan]", spinner="dots"):
+            target_base_path = find_ableton_script_path()
+
         if not target_base_path:
             console.print(
                 "[bold red]❌ Error: Could not find Ableton Live Remote Scripts "
