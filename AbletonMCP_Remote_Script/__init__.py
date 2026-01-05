@@ -19,6 +19,19 @@ except ImportError:
 DEFAULT_PORT = 9877
 HOST = "localhost"
 
+# Constants for frequency/Q conversion optimization (Natural Logarithm)
+DEFAULT_MIN_FREQ = 10.0
+DEFAULT_MAX_FREQ = 22000.0
+DEFAULT_FREQ_LN_MIN = math.log(DEFAULT_MIN_FREQ)
+DEFAULT_FREQ_LN_MAX = math.log(DEFAULT_MAX_FREQ)
+DEFAULT_FREQ_LN_RANGE = DEFAULT_FREQ_LN_MAX - DEFAULT_FREQ_LN_MIN
+
+DEFAULT_MIN_Q = 0.1
+DEFAULT_MAX_Q = 18.0
+DEFAULT_Q_LN_MIN = math.log(DEFAULT_MIN_Q)
+DEFAULT_Q_LN_MAX = math.log(DEFAULT_MAX_Q)
+DEFAULT_Q_LN_RANGE = DEFAULT_Q_LN_MAX - DEFAULT_Q_LN_MIN
+
 
 def create_instance(c_instance):
     """Create and return the AbletonMCP script instance"""
@@ -905,7 +918,7 @@ class AbletonMCP(ControlSurface):
         Convert frequency in Hz to normalized value (0-1) using precise logarithmic scale.
 
         EQ Eight frequency range is 10Hz to 22kHz.
-        Formula: normalized = (log(freq) - log(min)) / (log(max) - log(min))
+        Formula: normalized = (ln(freq) - ln(min)) / (ln(max) - ln(min))
         """
         # Validate inputs
         if frequency is None:
@@ -931,19 +944,23 @@ class AbletonMCP(ControlSurface):
         if frequency > max_freq:
             frequency = max_freq
 
-        # Convert to logarithmic scale
-        log_min = math.log10(min_freq)
-        log_max = math.log10(max_freq)
-        log_freq = math.log10(frequency)
+        # Optimization: Use pre-calculated values for default range
+        if min_freq == DEFAULT_MIN_FREQ and max_freq == DEFAULT_MAX_FREQ:
+            return (math.log(frequency) - DEFAULT_FREQ_LN_MIN) / DEFAULT_FREQ_LN_RANGE
 
-        return (log_freq - log_min) / (log_max - log_min)
+        # Convert to logarithmic scale using natural log (faster than log10)
+        ln_min = math.log(min_freq)
+        ln_max = math.log(max_freq)
+        ln_freq = math.log(frequency)
+
+        return (ln_freq - ln_min) / (ln_max - ln_min)
 
     def _normalized_to_frequency(self, normalized, min_freq=10.0, max_freq=22000.0):
         """
         Convert normalized value (0-1) to frequency in Hz using precise logarithmic scale.
 
         EQ Eight frequency range is 10Hz to 22kHz.
-        Formula: freq = 10 ^ (normalized * (log(max) - log(min)) + log(min))
+        Formula: freq = exp(normalized * (ln(max) - ln(min)) + ln(min))
         """
         # Validate inputs
         if normalized is None:
@@ -969,11 +986,16 @@ class AbletonMCP(ControlSurface):
         if normalized > 1.0:
             normalized = 1.0
 
-        log_min = math.log10(min_freq)
-        log_max = math.log10(max_freq)
+        # Optimization: Use pre-calculated values for default range
+        if min_freq == DEFAULT_MIN_FREQ and max_freq == DEFAULT_MAX_FREQ:
+            ln_freq = normalized * DEFAULT_FREQ_LN_RANGE + DEFAULT_FREQ_LN_MIN
+            return math.exp(ln_freq)
 
-        log_freq = normalized * (log_max - log_min) + log_min
-        return 10.0 ** log_freq
+        ln_min = math.log(min_freq)
+        ln_max = math.log(max_freq)
+
+        ln_freq = normalized * (ln_max - ln_min) + ln_min
+        return math.exp(ln_freq)
 
     def _q_to_normalized(self, q, min_q=0.1, max_q=18.0):
         """
@@ -997,11 +1019,15 @@ class AbletonMCP(ControlSurface):
         if q > max_q:
             q = max_q
 
-        log_min = math.log10(min_q)
-        log_max = math.log10(max_q)
-        log_q = math.log10(q)
+        # Optimization: Use pre-calculated values for default range
+        if min_q == DEFAULT_MIN_Q and max_q == DEFAULT_MAX_Q:
+            return (math.log(q) - DEFAULT_Q_LN_MIN) / DEFAULT_Q_LN_RANGE
 
-        return (log_q - log_min) / (log_max - log_min)
+        ln_min = math.log(min_q)
+        ln_max = math.log(max_q)
+        ln_q = math.log(q)
+
+        return (ln_q - ln_min) / (ln_max - ln_min)
 
     def _normalized_to_q(self, normalized, min_q=0.1, max_q=18.0):
         """Convert normalized value (0-1) to Q value using logarithmic scale"""
@@ -1020,11 +1046,16 @@ class AbletonMCP(ControlSurface):
         if normalized > 1.0:
             normalized = 1.0
 
-        log_min = math.log10(min_q)
-        log_max = math.log10(max_q)
+        # Optimization: Use pre-calculated values for default range
+        if min_q == DEFAULT_MIN_Q and max_q == DEFAULT_MAX_Q:
+            ln_q = normalized * DEFAULT_Q_LN_RANGE + DEFAULT_Q_LN_MIN
+            return math.exp(ln_q)
 
-        log_q = normalized * (log_max - log_min) + log_min
-        return 10.0 ** log_q
+        ln_min = math.log(min_q)
+        ln_max = math.log(max_q)
+
+        ln_q = normalized * (ln_max - ln_min) + ln_min
+        return math.exp(ln_q)
 
     def _find_browser_item_by_uri(self, browser_or_item, uri, max_depth=10, current_depth=0):
         """Find a browser item by its URI"""
