@@ -9,6 +9,7 @@ import logging
 import sys
 import os
 import asyncio
+import socket
 from typing import List, Optional
 import importlib.metadata
 
@@ -35,6 +36,19 @@ def get_version() -> str:
     try:
         return importlib.metadata.version("ableton-mcp")
     except importlib.metadata.PackageNotFoundError:
+        # Fallback to reading pyproject.toml if package is not installed (dev mode)
+        try:
+            # Look for pyproject.toml in the parent directory
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            pyproject_path = os.path.join(base_dir, "pyproject.toml")
+            if os.path.exists(pyproject_path):
+                # Simple parsing to avoid adding tomllib/toml dependency for just version
+                with open(pyproject_path, "r") as f:
+                    for line in f:
+                        if line.strip().startswith("version ="):
+                            return line.split("=")[1].strip().strip('"').strip("'")
+        except Exception:
+            pass
         return "unknown"
 
 
@@ -371,6 +385,15 @@ def install_remote_script(
     ))
 
 
+def check_ableton_connection(host: str = "127.0.0.1", port: int = 9877) -> bool:
+    """Check if Ableton Live Remote Script is reachable."""
+    try:
+        with socket.create_connection((host, port), timeout=1.0):
+            return True
+    except OSError:
+        return False
+
+
 def main() -> None:
     """Main entry point for the CLI."""
     args = parse_args()
@@ -383,11 +406,27 @@ def main() -> None:
         # Start the server
         console.print(Panel(
             f"🚀 Starting [bold]Ableton MCP server[/bold] v{get_version()}\n"
-            f"📡 Listening on [cyan]http://{args.host}:{args.port}[/cyan]\n\n"
+            f"📡 Listening on [link=http://{args.host}:{args.port}]http://{args.host}:{args.port}[/link]\n\n"
             "🛑 Press [bold red]Ctrl+C[/bold red] to stop the server",
             border_style="green",
             title="Server Starting"
         ))
+
+        # Check Ableton connection
+        with console.status("[bold yellow]🔌 Checking connection to Ableton Live...[/bold yellow]"):
+            is_connected = check_ableton_connection()
+
+        if is_connected:
+            console.print("[green]✅ Ableton Live detected![/green]")
+        else:
+            console.print(Panel(
+                "[yellow]⚠️  Ableton Live not detected on port 9877.[/yellow]\n"
+                "[dim]The server will still start, but commands may fail until Live is connected.\n"
+                "Make sure Ableton Live is running and the Remote Script is active.[/dim]",
+                border_style="yellow",
+                title="Connection Warning"
+            ))
+            console.print()
 
         # Set environment variables for the server
         os.environ["MCP_HOST"] = args.host
