@@ -63,14 +63,14 @@ class TestEqConversion(unittest.TestCase):
             self.assertAlmostEqual(q, back, places=4)
 
     def test_frequency_to_normalized(self):
-        # Test min value
-        self.assertAlmostEqual(AbletonMCP._frequency_to_normalized(None, 20.0), 0.0)
+        # Test min value - Explicitly set min/max to match test expectation (20Hz-20kHz)
+        self.assertAlmostEqual(AbletonMCP._frequency_to_normalized(None, 20.0, min_freq=20.0, max_freq=20000.0), 0.0)
 
         # Test max value
-        self.assertAlmostEqual(AbletonMCP._frequency_to_normalized(None, 20000.0), 1.0)
+        self.assertAlmostEqual(AbletonMCP._frequency_to_normalized(None, 20000.0, min_freq=20.0, max_freq=20000.0), 1.0)
 
-        # Test round trip
-        test_values = [20.0, 100.0, 1000.0, 5000.0, 20000.0]
+        # Test round trip with defaults (10Hz-22kHz) - this tests the optimized path
+        test_values = [10.0, 100.0, 1000.0, 5000.0, 22000.0]
         for freq in test_values:
             norm = AbletonMCP._frequency_to_normalized(None, freq)
             back = AbletonMCP._normalized_to_frequency(None, norm)
