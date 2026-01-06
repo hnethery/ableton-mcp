@@ -419,10 +419,18 @@ def main() -> None:
         if is_connected:
             console.print("[green]✅ Ableton Live detected![/green]")
         else:
+            warning_msg = (
+                "[yellow bold]⚠️  Ableton Live not detected on port 9877.[/yellow bold]\n\n"
+                "[dim]The server will start, but commands will fail until connected.[/dim]\n\n"
+                "[bold]Troubleshooting Checklist:[/bold]\n"
+                "1. Is Ableton Live running?\n"
+                "2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n"
+                "   [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?\n"
+                "3. Check Remote Script logs if issues persist."
+            )
+
             console.print(Panel(
-                "[yellow]⚠️  Ableton Live not detected on port 9877.[/yellow]\n"
-                "[dim]The server will still start, but commands may fail until Live is connected.\n"
-                "Make sure Ableton Live is running and the Remote Script is active.[/dim]",
+                warning_msg,
                 border_style="yellow",
                 title="Connection Warning"
             ))
