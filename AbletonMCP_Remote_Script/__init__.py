@@ -32,6 +32,10 @@ DEFAULT_Q_LN_MIN = math.log(DEFAULT_MIN_Q)
 DEFAULT_Q_LN_MAX = math.log(DEFAULT_MAX_Q)
 DEFAULT_Q_LN_RANGE = DEFAULT_Q_LN_MAX - DEFAULT_Q_LN_MIN
 
+# Constant for dB conversion optimization
+# 20 * log10(x) = 20 * (ln(x) / ln(10)) = (20 / ln(10)) * ln(x)
+DB_SCALE_CONSTANT = 20.0 / math.log(10.0)
+
 
 def create_instance(c_instance):
     """Create and return the AbletonMCP script instance"""
@@ -2088,7 +2092,8 @@ class AbletonMCP(ControlSurface):
 
         if value < 0.85:
             # Below 0dB
-            return 20 * math.log10(value / 0.85)
+            # Optimization: Use natural log with pre-calculated constant (faster than log10)
+            return DB_SCALE_CONSTANT * math.log(value / 0.85)
         else:
             # Above 0dB (0.85 to 1.0 maps to 0dB to +6dB)
             return 6 * (value - 0.85) / 0.15
