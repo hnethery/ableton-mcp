@@ -91,6 +91,10 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     subparsers.add_parser(
         "version", help="Show version information")
 
+    # Doctor command
+    subparsers.add_parser(
+        "doctor", help="Check connection to Ableton Live and troubleshoot issues")
+
     # Install command for Ableton Live Remote Script
     install_parser = subparsers.add_parser(
         "install",
@@ -289,6 +293,47 @@ def find_ableton_script_path() -> Optional[str]:
     return None
 
 
+def run_doctor() -> None:
+    """Run diagnostics to help troubleshoot issues."""
+    console.print(Panel(
+        "[bold]🏥 Ableton MCP Doctor[/bold]\n"
+        "Checking your environment...",
+        border_style="cyan"
+    ))
+
+    # Check 1: Remote Script Installation
+    console.print("[bold]1. 📂 Remote Script Installation[/bold]")
+
+    script_path = find_ableton_script_path()
+    if script_path:
+        installed_path = os.path.join(script_path, "AbletonMCP_Remote_Script")
+        if os.path.exists(installed_path):
+             console.print(f"   [green]✅ Found at:[/green] {installed_path}")
+        else:
+             console.print(f"   [yellow]⚠️  Not found in:[/yellow] {script_path}")
+             console.print("      Run [bold cyan]ableton-mcp install[/bold cyan] to install it.")
+    else:
+        console.print("   [yellow]⚠️  Could not locate Ableton Live Remote Scripts directory.[/yellow]")
+        console.print("      If you have Ableton Live installed, use [bold cyan]ableton-mcp install --ableton-path <path>[/bold cyan]")
+
+    console.print()
+
+    # Check 2: Connection
+    console.print("[bold]2. 🔌 Connection to Ableton Live[/bold]")
+    if check_ableton_connection():
+        console.print("   [green]✅ Connected to Ableton Live![/green]")
+    else:
+        console.print("   [red]❌ Could not connect to Ableton Live.[/red]")
+        console.print("\n   [bold]Troubleshooting:[/bold]")
+        console.print("   1. Is Ableton Live running?")
+        console.print("   2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n      [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?")
+        console.print("   3. Is the server port 9877 blocked?")
+        console.print("   4. Check Remote Script logs in Ableton's log folder.")
+
+    console.print()
+    console.print("[dim]Note: This tool checks for common issues. For more details, run the server with --debug.[/dim]")
+
+
 def install_remote_script(
         ableton_path: Optional[str] = None, force: bool = False) -> None:
     """Install the Ableton Live Remote Script."""
@@ -426,7 +471,8 @@ def main() -> None:
                 "1. Is Ableton Live running?\n"
                 "2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n"
                 "   [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?\n"
-                "3. Check Remote Script logs if issues persist."
+                "3. Check Remote Script logs if issues persist.\n\n"
+                "Run [bold cyan]ableton-mcp doctor[/bold cyan] for more checks."
             )
 
             console.print(Panel(
@@ -448,6 +494,9 @@ def main() -> None:
 
     elif args.command == "info":
         show_info()
+
+    elif args.command == "doctor":
+        run_doctor()
 
     elif args.command == "install":
         install_remote_script(args.ableton_path, args.force)
