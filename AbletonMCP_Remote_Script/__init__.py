@@ -1284,16 +1284,25 @@ class AbletonMCP(ControlSurface):
             # Set parameters as requested
             results = {}
 
+            # Optimization: Create a parameter map for O(1) lookups if setting multiple parameters
+            # This is faster than iterating O(N) multiple times
+            if sum(x is not None for x in [frequency, gain, q, filter_type]) > 1:
+                param_map = {p.name: p for p in device.parameters}
+            else:
+                param_map = None
+
             # Set frequency if provided
             if frequency is not None:
                 freq_param_name = f"{band_number} Frequency A"
                 freq_param = None
 
-                # Find the frequency parameter
-                for param in device.parameters:
-                    if param.name == freq_param_name:
-                        freq_param = param
-                        break
+                if param_map:
+                    freq_param = param_map.get(freq_param_name)
+                else:
+                    for param in device.parameters:
+                        if param.name == freq_param_name:
+                            freq_param = param
+                            break
 
                 if freq_param is None:
                     raise ValueError(
@@ -1310,11 +1319,13 @@ class AbletonMCP(ControlSurface):
                 gain_param_name = f"{band_number} Gain A"
                 gain_param = None
 
-                # Find the gain parameter
-                for param in device.parameters:
-                    if param.name == gain_param_name:
-                        gain_param = param
-                        break
+                if param_map:
+                    gain_param = param_map.get(gain_param_name)
+                else:
+                    for param in device.parameters:
+                        if param.name == gain_param_name:
+                            gain_param = param
+                            break
 
                 if gain_param is None:
                     raise ValueError(
@@ -1328,11 +1339,13 @@ class AbletonMCP(ControlSurface):
                 q_param_name = f"{band_number} Resonance A"
                 q_param = None
 
-                # Find the Q parameter
-                for param in device.parameters:
-                    if param.name == q_param_name:
-                        q_param = param
-                        break
+                if param_map:
+                    q_param = param_map.get(q_param_name)
+                else:
+                    for param in device.parameters:
+                        if param.name == q_param_name:
+                            q_param = param
+                            break
 
                 if q_param is None:
                     raise ValueError(f"Parameter '{q_param_name}' not found")
@@ -1348,11 +1361,13 @@ class AbletonMCP(ControlSurface):
                 filter_param_name = f"{band_number} Filter Type A"
                 filter_param = None
 
-                # Find the filter type parameter
-                for param in device.parameters:
-                    if param.name == filter_param_name:
-                        filter_param = param
-                        break
+                if param_map:
+                    filter_param = param_map.get(filter_param_name)
+                else:
+                    for param in device.parameters:
+                        if param.name == filter_param_name:
+                            filter_param = param
+                            break
 
                 if filter_param is None:
                     raise ValueError(
@@ -1621,6 +1636,10 @@ class AbletonMCP(ControlSurface):
             preset = presets[preset_type]
             applied_settings = {}
 
+            # Optimization: Create a parameter map for O(1) lookups
+            # This avoids iterating through device.parameters (O(N)) for every parameter we set
+            param_map = {p.name: p for p in device.parameters}
+
             # Apply preset settings
             for band_index, settings in preset.items():
                 band_settings = {}
@@ -1629,13 +1648,7 @@ class AbletonMCP(ControlSurface):
                 # Enable/disable the band
                 if "enabled" in settings:
                     enable_param_name = f"{band_number} Filter On A"
-                    enable_param = None
-
-                    # Find the enable parameter
-                    for param in device.parameters:
-                        if param.name == enable_param_name:
-                            enable_param = param
-                            break
+                    enable_param = param_map.get(enable_param_name)
 
                     if enable_param is None:
                         raise ValueError(
@@ -1650,13 +1663,7 @@ class AbletonMCP(ControlSurface):
                     # Set frequency if provided
                     if "freq" in settings:
                         freq_param_name = f"{band_number} Frequency A"
-                        freq_param = None
-
-                        # Find the frequency parameter
-                        for param in device.parameters:
-                            if param.name == freq_param_name:
-                                freq_param = param
-                                break
+                        freq_param = param_map.get(freq_param_name)
 
                         if freq_param is None:
                             raise ValueError(
@@ -1673,13 +1680,7 @@ class AbletonMCP(ControlSurface):
                     # Set gain if provided
                     if "gain" in settings:
                         gain_param_name = f"{band_number} Gain A"
-                        gain_param = None
-
-                        # Find the gain parameter
-                        for param in device.parameters:
-                            if param.name == gain_param_name:
-                                gain_param = param
-                                break
+                        gain_param = param_map.get(gain_param_name)
 
                         if gain_param is None:
                             raise ValueError(
@@ -1691,13 +1692,7 @@ class AbletonMCP(ControlSurface):
                     # Set Q if provided
                     if "q" in settings:
                         q_param_name = f"{band_number} Resonance A"
-                        q_param = None
-
-                        # Find the Q parameter
-                        for param in device.parameters:
-                            if param.name == q_param_name:
-                                q_param = param
-                                break
+                        q_param = param_map.get(q_param_name)
 
                         if q_param is None:
                             raise ValueError(
@@ -1713,13 +1708,7 @@ class AbletonMCP(ControlSurface):
                     # Set filter type if provided
                     if "type" in settings:
                         filter_param_name = f"{band_number} Filter Type A"
-                        filter_param = None
-
-                        # Find the filter type parameter
-                        for param in device.parameters:
-                            if param.name == filter_param_name:
-                                filter_param = param
-                                break
+                        filter_param = param_map.get(filter_param_name)
 
                         if filter_param is None:
                             raise ValueError(
