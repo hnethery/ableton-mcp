@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+from rich.prompt import Prompt
 
 from .server import mcp, main as server_main
 
@@ -36,17 +37,21 @@ def get_version() -> str:
     try:
         return importlib.metadata.version("ableton-mcp")
     except importlib.metadata.PackageNotFoundError:
-        # Fallback to reading pyproject.toml if package is not installed (dev mode)
+        # Fallback to reading pyproject.toml if package is not installed (dev
+        # mode)
         try:
             # Look for pyproject.toml in the parent directory
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__)))
             pyproject_path = os.path.join(base_dir, "pyproject.toml")
             if os.path.exists(pyproject_path):
-                # Simple parsing to avoid adding tomllib/toml dependency for just version
+                # Simple parsing to avoid adding tomllib/toml dependency for
+                # just version
                 with open(pyproject_path, "r") as f:
                     for line in f:
                         if line.strip().startswith("version ="):
-                            return line.split("=")[1].strip().strip('"').strip("'")
+                            return line.split("=")[1].strip().strip(
+                                '"').strip("'")
         except Exception:
             pass
         return "unknown"
@@ -93,7 +98,8 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
     # Doctor command
     subparsers.add_parser(
-        "doctor", help="Check connection to Ableton Live and troubleshoot issues")
+        "doctor",
+        help="Check connection to Ableton Live and troubleshoot issues")
 
     # Install command for Ableton Live Remote Script
     install_parser = subparsers.add_parser(
@@ -118,7 +124,8 @@ def show_version() -> None:
     version_text = Text()
     version_text.append(f"🎵 Ableton MCP v{get_version()}\n", style="bold cyan")
     version_text.append(
-        "🎹 Ableton Live integration through the Model Context Protocol\n", style="italic")
+        "🎹 Ableton Live integration through the Model Context Protocol\n",
+        style="italic")
     version_text.append(
         "🔗 https://github.com/itsuzef/ableton-mcp", style="blue underline")
 
@@ -127,10 +134,11 @@ def show_version() -> None:
 
 def show_info() -> None:
     """Show information about the MCP server."""
-    console.print(Panel.fit(
-        f"[bold]Ableton MCP[/bold] v{get_version()}\n[italic]Ableton Live integration through the Model Context Protocol[/italic]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold]Ableton MCP[/bold] v{
+                get_version()}\n[italic]Ableton Live integration through the Model Context Protocol[/italic]",
+            border_style="cyan"))
 
     # Get all registered functions from the MCP server
     async def get_tools():
@@ -216,10 +224,10 @@ def show_info() -> None:
         console.print(Panel(f"❌ Error listing tools: {e}", border_style="red"))
 
     console.print()
-    console.print(Panel(
-        "💡 For more information, start the server and visit [link=http://localhost:8000/docs]http://localhost:8000/docs[/link]",
-        border_style="yellow"
-    ))
+    console.print(
+        Panel(
+            "💡 For more information, start the server and visit [link=http://localhost:8000/docs]http://localhost:8000/docs[/link]",
+            border_style="yellow"))
 
 
 def find_ableton_script_path() -> Optional[str]:
@@ -308,13 +316,17 @@ def run_doctor() -> None:
     if script_path:
         installed_path = os.path.join(script_path, "AbletonMCP_Remote_Script")
         if os.path.exists(installed_path):
-             console.print(f"   [green]✅ Found at:[/green] {installed_path}")
+            console.print(f"   [green]✅ Found at:[/green] {installed_path}")
         else:
-             console.print(f"   [yellow]⚠️  Not found in:[/yellow] {script_path}")
-             console.print("      Run [bold cyan]ableton-mcp install[/bold cyan] to install it.")
+            console.print(
+                f"   [yellow]⚠️  Not found in:[/yellow] {script_path}")
+            console.print(
+                "      Run [bold cyan]ableton-mcp install[/bold cyan] to install it.")
     else:
-        console.print("   [yellow]⚠️  Could not locate Ableton Live Remote Scripts directory.[/yellow]")
-        console.print("      If you have Ableton Live installed, use [bold cyan]ableton-mcp install --ableton-path <path>[/bold cyan]")
+        console.print(
+            "   [yellow]⚠️  Could not locate Ableton Live Remote Scripts directory.[/yellow]")
+        console.print(
+            "      If you have Ableton Live installed, use [bold cyan]ableton-mcp install --ableton-path <path>[/bold cyan]")
 
     console.print()
 
@@ -326,12 +338,15 @@ def run_doctor() -> None:
         console.print("   [red]❌ Could not connect to Ableton Live.[/red]")
         console.print("\n   [bold]Troubleshooting:[/bold]")
         console.print("   1. Is Ableton Live running?")
-        console.print("   2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n      [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?")
+        console.print(
+            "   2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n      [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?")
         console.print("   3. Is the server port 9877 blocked?")
-        console.print("   4. Check Remote Script logs in Ableton's log folder.")
+        console.print(
+            "   4. Check Remote Script logs in Ableton's log folder.")
 
     console.print()
-    console.print("[dim]Note: This tool checks for common issues. For more details, run the server with --debug.[/dim]")
+    console.print(
+        "[dim]Note: This tool checks for common issues. For more details, run the server with --debug.[/dim]")
 
 
 def install_remote_script(
@@ -358,25 +373,41 @@ def install_remote_script(
 
         if not target_base_path:
             console.print(
-                "[bold red]❌ Error: Could not find Ableton Live Remote Scripts "
-                "directory.[/bold red]")
-            console.print(
-                "\n[yellow]Please specify the path using --ableton-path[/yellow]")
-            console.print("Examples:")
+                "[yellow]⚠️  Could not auto-detect Ableton Live Remote Scripts directory.[/yellow]")
+
+            # Show examples to help the user
+            console.print("\n[dim]Typical paths look like:[/dim]")
             if sys.platform == "darwin":
                 console.print(
-                    "  --ableton-path \"/Applications/Ableton Live 11 Suite.app/"
-                    "Contents/App-Resources/MIDI Remote Scripts\"")
+                    "  /Applications/Ableton Live 11 Suite.app/Contents/App-Resources/MIDI Remote Scripts")
             elif sys.platform == "win32":
                 console.print(
-                    "  --ableton-path \"C:\\Program Files\\Ableton\\Live 11 Suite\\"
-                    "Resources\\MIDI Remote Scripts\"")
+                    "  C:\\Program Files\\Ableton\\Live 11 Suite\\Resources\\MIDI Remote Scripts")
             else:
                 console.print(
-                    "  --ableton-path \"/path/to/ableton/MIDI Remote Scripts\"")
-            sys.exit(1)
+                    "  /home/user/Ableton/Live 11/Resources/MIDI Remote Scripts")
+
+            # Interactive prompt
+            target_base_path = Prompt.ask(
+                "\n[bold cyan]Please enter the path manually[/bold cyan] (or press Enter to exit)"
+            )
+
+            if not target_base_path:
+                console.print("[red]❌ Installation cancelled.[/red]")
+                console.print(
+                    "\n[yellow]You can also use: ableton-mcp install --ableton-path <path>[/yellow]")
+                sys.exit(1)
+
+            # Expand ~ if present
+            target_base_path = os.path.expanduser(target_base_path)
+
+            if not os.path.exists(target_base_path):
+                console.print(
+                    f"[bold red]❌ Error: The path '{target_base_path}' does not exist.[/bold red]")
+                sys.exit(1)
+
         console.print(
-            f"📂 Found Ableton Live directory: [cyan]{target_base_path}[/cyan]")
+            f"📂 Using Ableton Live directory: [cyan]{target_base_path}[/cyan]")
 
     target_path = os.path.join(
         target_base_path, "AbletonMCP_Remote_Script")
@@ -415,8 +446,7 @@ def install_remote_script(
     steps = [
         "Restart Ableton Live.",
         "Open Preferences > Link/Tempo/MIDI.",
-        "Select [bold cyan]'AbletonMCP_Remote_Script'[/bold cyan] in the Control Surface list."
-    ]
+        "Select [bold cyan]'AbletonMCP_Remote_Script'[/bold cyan] in the Control Surface list."]
 
     steps_text = Text()
     for i, step in enumerate(steps, 1):
@@ -430,7 +460,8 @@ def install_remote_script(
     ))
 
 
-def check_ableton_connection(host: str = "127.0.0.1", port: int = 9877) -> bool:
+def check_ableton_connection(host: str = "127.0.0.1",
+                             port: int = 9877) -> bool:
     """Check if Ableton Live Remote Script is reachable."""
     try:
         with socket.create_connection((host, port), timeout=1.0):
@@ -451,7 +482,11 @@ def main() -> None:
         # Start the server
         console.print(Panel(
             f"🚀 Starting [bold]Ableton MCP server[/bold] v{get_version()}\n"
-            f"📡 Listening on [link=http://{args.host}:{args.port}]http://{args.host}:{args.port}[/link]\n\n"
+            f"📡 Listening on [link=http://{
+                args.host}:{
+                args.port}]http://{
+                args.host}:{
+                args.port}[/link]\n\n"
             "🛑 Press [bold red]Ctrl+C[/bold red] to stop the server",
             border_style="green",
             title="Server Starting"
@@ -472,8 +507,7 @@ def main() -> None:
                 "2. Is [cyan]AbletonMCP_Remote_Script[/cyan] selected in:\n"
                 "   [italic]Preferences > Link/Tempo/MIDI > Control Surfaces[/italic]?\n"
                 "3. Check Remote Script logs if issues persist.\n\n"
-                "Run [bold cyan]ableton-mcp doctor[/bold cyan] for more checks."
-            )
+                "Run [bold cyan]ableton-mcp doctor[/bold cyan] for more checks.")
 
             console.print(Panel(
                 warning_msg,
