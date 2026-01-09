@@ -36,6 +36,39 @@ DEFAULT_Q_LN_RANGE = DEFAULT_Q_LN_MAX - DEFAULT_Q_LN_MIN
 # 20 * log10(x) = 20 * (ln(x) / ln(10)) = (20 / ln(10)) * ln(x)
 DB_SCALE_CONSTANT = 20.0 / math.log(10.0)
 
+# Pre-defined presets to avoid recreation on every call
+EQ_PRESETS = {
+    "low_cut": {
+        0: {"enabled": True, "freq": 80, "gain": 0, "q": 0.7, "type": "High Pass 48dB"}
+    },
+    "high_cut": {
+        7: {"enabled": True, "freq": 10000, "gain": 0, "q": 0.7, "type": "Low Pass 48dB"}
+    },
+    "low_shelf": {
+        0: {"enabled": True, "freq": 100, "gain": -3, "q": 0.7, "type": "Low Shelf"}
+    },
+    "high_shelf": {
+        7: {"enabled": True, "freq": 8000, "gain": -3, "q": 0.7, "type": "High Shelf"}
+    },
+    "bell": {
+        3: {"enabled": True, "freq": 1000, "gain": 0, "q": 1.0, "type": "Bell"}
+    },
+    "notch": {
+        3: {"enabled": True, "freq": 1000, "gain": -12, "q": 8.0, "type": "Notch"}
+    },
+    "flat": {
+        # Reset all bands to default values
+        0: {"enabled": False},
+        1: {"enabled": False},
+        2: {"enabled": False},
+        3: {"enabled": False},
+        4: {"enabled": False},
+        5: {"enabled": False},
+        6: {"enabled": False},
+        7: {"enabled": False}
+    }
+}
+
 
 def create_instance(c_instance):
     """Create and return the AbletonMCP script instance"""
@@ -1258,6 +1291,13 @@ class AbletonMCP(ControlSurface):
             self.log_message(traceback.format_exc())
             raise
 
+    def _get_parameter_map(self, device):
+        """
+        Create a dictionary mapping parameter names to parameter objects.
+        This provides O(1) lookups instead of O(N) linear searches.
+        """
+        return {p.name: p for p in device.parameters}
+
     def _set_eq_band(self, track_index, device_index, band_index, frequency=None, gain=None, q=None, filter_type=None):
         """Set parameters for a specific band in an EQ Eight device"""
         try:
@@ -1278,6 +1318,10 @@ class AbletonMCP(ControlSurface):
             if band_index < 0 or band_index > 7:
                 raise ValueError("Band index must be between 0 and 7")
 
+            # Optimization: Create a map of parameters for O(1) lookup
+            # This avoids iterating through the parameter list multiple times
+            param_map = self._get_parameter_map(device)
+
             # Convert band_index (0-7) to the actual band number (1-8)
             band_number = band_index + 1
 
@@ -1287,17 +1331,11 @@ class AbletonMCP(ControlSurface):
             # Set frequency if provided
             if frequency is not None:
                 freq_param_name = f"{band_number} Frequency A"
-                freq_param = None
 
-                # Find the frequency parameter
-                for param in device.parameters:
-                    if param.name == freq_param_name:
-                        freq_param = param
-                        break
+                if freq_param_name not in param_map:
+                    raise ValueError(f"Parameter '{freq_param_name}' not found")
 
-                if freq_param is None:
-                    raise ValueError(
-                        f"Parameter '{freq_param_name}' not found")
+                freq_param = param_map[freq_param_name]
 
                 # Convert frequency value (Hz) to normalized value (0-1) using precise logarithmic mapping
                 normalized_value = self._frequency_to_normalized(frequency)
@@ -1308,17 +1346,11 @@ class AbletonMCP(ControlSurface):
             # Set gain if provided
             if gain is not None:
                 gain_param_name = f"{band_number} Gain A"
-                gain_param = None
 
-                # Find the gain parameter
-                for param in device.parameters:
-                    if param.name == gain_param_name:
-                        gain_param = param
-                        break
+                if gain_param_name not in param_map:
+                    raise ValueError(f"Parameter '{gain_param_name}' not found")
 
-                if gain_param is None:
-                    raise ValueError(
-                        f"Parameter '{gain_param_name}' not found")
+                gain_param = param_map[gain_param_name]
 
                 gain_param.value = gain
                 results["gain"] = gain
@@ -1326,16 +1358,11 @@ class AbletonMCP(ControlSurface):
             # Set Q if provided
             if q is not None:
                 q_param_name = f"{band_number} Resonance A"
-                q_param = None
 
-                # Find the Q parameter
-                for param in device.parameters:
-                    if param.name == q_param_name:
-                        q_param = param
-                        break
-
-                if q_param is None:
+                if q_param_name not in param_map:
                     raise ValueError(f"Parameter '{q_param_name}' not found")
+
+                q_param = param_map[q_param_name]
 
                 # Convert Q value to normalized value (0-1)
                 normalized_q = self._q_to_normalized(q)
@@ -1346,17 +1373,11 @@ class AbletonMCP(ControlSurface):
             # Set filter type if provided
             if filter_type is not None:
                 filter_param_name = f"{band_number} Filter Type A"
-                filter_param = None
 
-                # Find the filter type parameter
-                for param in device.parameters:
-                    if param.name == filter_param_name:
-                        filter_param = param
-                        break
+                if filter_param_name not in param_map:
+                    raise ValueError(f"Parameter '{filter_param_name}' not found")
 
-                if filter_param is None:
-                    raise ValueError(
-                        f"Parameter '{filter_param_name}' not found")
+                filter_param = param_map[filter_param_name]
 
                 # Handle filter type as string or index
                 if isinstance(filter_type, str):
@@ -1410,22 +1431,22 @@ class AbletonMCP(ControlSurface):
                 raise ValueError(
                     f"Device at index {device_index} is not an EQ Eight device")
 
+            # Optimization: Create a map of parameters for O(1) lookup
+            # This avoids iterating through the parameter list multiple times
+            # Note: We still use search for fuzzy matches below, but direct lookups benefit
+            param_map = self._get_parameter_map(device)
+
             # Set parameters as requested
             results = {}
 
             # Set scale if provided
             if scale is not None:
-                scale_param = None
+                scale_param_name = "Scale"
 
-                # Find the scale parameter
-                for param in device.parameters:
-                    if param.name == "Scale":
-                        scale_param = param
-                        break
+                if scale_param_name not in param_map:
+                     raise ValueError("Scale parameter not found")
 
-                if scale_param is None:
-                    raise ValueError("Scale parameter not found")
-
+                scale_param = param_map[scale_param_name]
                 scale_param.value = scale
                 results["scale"] = scale
 
@@ -1581,45 +1602,17 @@ class AbletonMCP(ControlSurface):
                 raise ValueError(
                     f"Device at index {device_index} is not an EQ Eight device")
 
-            # Define presets
-            presets = {
-                "low_cut": {
-                    0: {"enabled": True, "freq": 80, "gain": 0, "q": 0.7, "type": "High Pass 48dB"}
-                },
-                "high_cut": {
-                    7: {"enabled": True, "freq": 10000, "gain": 0, "q": 0.7, "type": "Low Pass 48dB"}
-                },
-                "low_shelf": {
-                    0: {"enabled": True, "freq": 100, "gain": -3, "q": 0.7, "type": "Low Shelf"}
-                },
-                "high_shelf": {
-                    7: {"enabled": True, "freq": 8000, "gain": -3, "q": 0.7, "type": "High Shelf"}
-                },
-                "bell": {
-                    3: {"enabled": True, "freq": 1000, "gain": 0, "q": 1.0, "type": "Bell"}
-                },
-                "notch": {
-                    3: {"enabled": True, "freq": 1000, "gain": -12, "q": 8.0, "type": "Notch"}
-                },
-                "flat": {
-                    # Reset all bands to default values
-                    0: {"enabled": False},
-                    1: {"enabled": False},
-                    2: {"enabled": False},
-                    3: {"enabled": False},
-                    4: {"enabled": False},
-                    5: {"enabled": False},
-                    6: {"enabled": False},
-                    7: {"enabled": False}
-                }
-            }
-
-            if preset_type not in presets:
+            if preset_type not in EQ_PRESETS:
                 raise ValueError(
-                    f"Unknown preset type '{preset_type}'. Available presets: {', '.join(presets.keys())}")
+                    f"Unknown preset type '{preset_type}'. Available presets: {', '.join(EQ_PRESETS.keys())}")
 
-            preset = presets[preset_type]
+            preset = EQ_PRESETS[preset_type]
             applied_settings = {}
+
+            # Optimization: Create a map of parameters for O(1) lookup
+            # This avoids iterating through the parameter list multiple times (once for each parameter in each band)
+            # Without this map, applying a preset could take 40-50 linear searches through the parameter list.
+            param_map = self._get_parameter_map(device)
 
             # Apply preset settings
             for band_index, settings in preset.items():
@@ -1629,18 +1622,11 @@ class AbletonMCP(ControlSurface):
                 # Enable/disable the band
                 if "enabled" in settings:
                     enable_param_name = f"{band_number} Filter On A"
-                    enable_param = None
 
-                    # Find the enable parameter
-                    for param in device.parameters:
-                        if param.name == enable_param_name:
-                            enable_param = param
-                            break
+                    if enable_param_name not in param_map:
+                        raise ValueError(f"Parameter '{enable_param_name}' not found")
 
-                    if enable_param is None:
-                        raise ValueError(
-                            f"Parameter '{enable_param_name}' not found")
-
+                    enable_param = param_map[enable_param_name]
                     enable_value = 1 if settings["enabled"] else 0
                     enable_param.value = enable_value
                     band_settings["enabled"] = settings["enabled"]
@@ -1650,17 +1636,11 @@ class AbletonMCP(ControlSurface):
                     # Set frequency if provided
                     if "freq" in settings:
                         freq_param_name = f"{band_number} Frequency A"
-                        freq_param = None
 
-                        # Find the frequency parameter
-                        for param in device.parameters:
-                            if param.name == freq_param_name:
-                                freq_param = param
-                                break
+                        if freq_param_name not in param_map:
+                            raise ValueError(f"Parameter '{freq_param_name}' not found")
 
-                        if freq_param is None:
-                            raise ValueError(
-                                f"Parameter '{freq_param_name}' not found")
+                        freq_param = param_map[freq_param_name]
 
                         # Convert frequency to normalized value (0-1) using precise logarithmic mapping
                         frequency = settings["freq"]
@@ -1673,17 +1653,11 @@ class AbletonMCP(ControlSurface):
                     # Set gain if provided
                     if "gain" in settings:
                         gain_param_name = f"{band_number} Gain A"
-                        gain_param = None
 
-                        # Find the gain parameter
-                        for param in device.parameters:
-                            if param.name == gain_param_name:
-                                gain_param = param
-                                break
+                        if gain_param_name not in param_map:
+                            raise ValueError(f"Parameter '{gain_param_name}' not found")
 
-                        if gain_param is None:
-                            raise ValueError(
-                                f"Parameter '{gain_param_name}' not found")
+                        gain_param = param_map[gain_param_name]
 
                         gain_param.value = settings["gain"]
                         band_settings["gain"] = settings["gain"]
@@ -1691,17 +1665,11 @@ class AbletonMCP(ControlSurface):
                     # Set Q if provided
                     if "q" in settings:
                         q_param_name = f"{band_number} Resonance A"
-                        q_param = None
 
-                        # Find the Q parameter
-                        for param in device.parameters:
-                            if param.name == q_param_name:
-                                q_param = param
-                                break
+                        if q_param_name not in param_map:
+                            raise ValueError(f"Parameter '{q_param_name}' not found")
 
-                        if q_param is None:
-                            raise ValueError(
-                                f"Parameter '{q_param_name}' not found")
+                        q_param = param_map[q_param_name]
 
                         # Convert Q value to normalized value (0-1)
                         q = settings["q"]
@@ -1713,17 +1681,11 @@ class AbletonMCP(ControlSurface):
                     # Set filter type if provided
                     if "type" in settings:
                         filter_param_name = f"{band_number} Filter Type A"
-                        filter_param = None
 
-                        # Find the filter type parameter
-                        for param in device.parameters:
-                            if param.name == filter_param_name:
-                                filter_param = param
-                                break
+                        if filter_param_name not in param_map:
+                            raise ValueError(f"Parameter '{filter_param_name}' not found")
 
-                        if filter_param is None:
-                            raise ValueError(
-                                f"Parameter '{filter_param_name}' not found")
+                        filter_param = param_map[filter_param_name]
 
                         # Handle filter type as string
                         filter_type = settings["type"]
