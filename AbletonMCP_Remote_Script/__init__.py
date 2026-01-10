@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 import math
+import re
 
 # Change queue import for Python 2
 try:
@@ -35,6 +36,12 @@ DEFAULT_Q_LN_RANGE = DEFAULT_Q_LN_MAX - DEFAULT_Q_LN_MIN
 # Constant for dB conversion optimization
 # 20 * log10(x) = 20 * (ln(x) / ln(10)) = (20 / ln(10)) * ln(x)
 DB_SCALE_CONSTANT = 20.0 / math.log(10.0)
+
+# Regex to find JSON structural characters while skipping strings
+# Matches:
+# 1. A string: "..." (handling escaped quotes)
+# 2. A structural character: { } [ ]
+JSON_TOKEN_PATTERN = re.compile(r'"(?:[^"\\\\]|\\\\.)*"|([\[\]{}])')
 
 
 def create_instance(c_instance):
@@ -169,6 +176,7 @@ class AbletonMCP(ControlSurface):
         self.log_message("Client handler started")
         client.settimeout(None)  # No timeout for client socket
         buffer_chunks = []  # Use list for O(1) appends instead of O(N) string concatenation
+        json_balance = 0
 
         try:
             while self.running:
@@ -192,12 +200,21 @@ class AbletonMCP(ControlSurface):
 
                     buffer_chunks.append(chunk)
 
+                    # Update balance
+                    for match in JSON_TOKEN_PATTERN.finditer(chunk):
+                        token = match.group(1)
+                        if token:
+                            if token == '{' or token == '[':
+                                json_balance += 1
+                            elif token == '}' or token == ']':
+                                json_balance -= 1
+
                     try:
                         # Optimization: Only attempt to parse if the buffer looks
                         # like a complete JSON object to avoid O(N^2) parsing.
                         # We use a custom check to avoid buffer.strip() which creates a full copy.
                         # Also avoids joining chunks until we have a likely candidate.
-                        if not self._is_complete_json_candidate(buffer_chunks):
+                        if json_balance != 0 or not self._is_complete_json_candidate(buffer_chunks):
                             continue
 
                         # Join chunks only when we have a candidate
@@ -206,6 +223,7 @@ class AbletonMCP(ControlSurface):
                         # Try to parse command from buffer
                         command = json.loads(full_buffer)
                         buffer_chunks = []  # Clear buffer after successful parse
+                        json_balance = 0  # Reset balance
 
                         if self.DEBUG:
                             self.log_message("Received command: " +
