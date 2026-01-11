@@ -147,7 +147,9 @@ class AbletonConnection:
                 f"Sending command: {command_type} with params: {params}")
 
             # Send the command
-            self.sock.sendall(json.dumps(command).encode('utf-8'))
+            # Optimization: Use separators=(',', ':') to remove whitespace and reduce payload size
+            self.sock.sendall(json.dumps(
+                command, separators=(',', ':')).encode('utf-8'))
             logger.info("Command sent, waiting for response...")
 
             # Set timeout based on command type
