@@ -168,7 +168,8 @@ class AbletonMCP(ControlSurface):
         """Handle communication with a connected client"""
         self.log_message("Client handler started")
         client.settimeout(None)  # No timeout for client socket
-        buffer_chunks = []  # Use list for O(1) appends instead of O(N) string concatenation
+        # Use list for O(1) appends instead of O(N) string concatenation
+        buffer_chunks = []
 
         try:
             while self.running:
@@ -217,11 +218,13 @@ class AbletonMCP(ControlSurface):
                         # Send the response with explicit encoding
                         try:
                             # Python 3: encode string to bytes
+                            # Optimization: Use separators=(',', ':') to remove whitespace and reduce payload size
                             client.sendall(json.dumps(
-                                response).encode('utf-8'))
+                                response, separators=(',', ':')).encode('utf-8'))
                         except AttributeError:
                             # Python 2: string is already bytes
-                            client.sendall(json.dumps(response))
+                            client.sendall(json.dumps(
+                                response, separators=(',', ':')))
                     except ValueError:
                         # Incomplete data, wait for more
                         continue
@@ -237,11 +240,13 @@ class AbletonMCP(ControlSurface):
                     }
                     try:
                         # Python 3: encode string to bytes
+                        # Optimization: Use separators=(',', ':') to remove whitespace and reduce payload size
                         client.sendall(json.dumps(
-                            error_response).encode('utf-8'))
+                            error_response, separators=(',', ':')).encode('utf-8'))
                     except AttributeError:
                         # Python 2: string is already bytes
-                        client.sendall(json.dumps(error_response))
+                        client.sendall(json.dumps(
+                            error_response, separators=(',', ':')))
                     except:
                         # If we can't send the error, the connection is probably dead
                         break
