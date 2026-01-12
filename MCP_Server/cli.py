@@ -369,9 +369,17 @@ def install_remote_script(
                 console.print(
                     "  [dim]C:\\Program Files\\Ableton\\Live 11 Suite\\Resources\\MIDI Remote Scripts[/dim]")
 
-            target_base_path = Prompt.ask("\n[bold cyan]Please enter the full path to your 'MIDI Remote Scripts' directory[/bold cyan]")
+            try:
+                target_base_path = Prompt.ask("\n[bold cyan]Please enter the full path to your 'MIDI Remote Scripts' directory[/bold cyan]")
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[yellow]Operation cancelled.[/yellow]")
+                sys.exit(0)
 
             if target_base_path:
+                # Basic input validation to prevent processing excessively large inputs
+                if len(target_base_path) > 4096:
+                    console.print("[bold red]❌ Error: Path is too long.[/bold red]")
+                    sys.exit(1)
                 target_base_path = os.path.expanduser(target_base_path.strip())
 
             if not target_base_path or not os.path.isdir(target_base_path):
