@@ -15,6 +15,7 @@ import importlib.metadata
 
 # Rich imports for UX
 from rich.console import Console
+from rich.prompt import Prompt
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
@@ -358,25 +359,28 @@ def install_remote_script(
 
         if not target_base_path:
             console.print(
-                "[bold red]❌ Error: Could not find Ableton Live Remote Scripts "
-                "directory.[/bold red]")
-            console.print(
-                "\n[yellow]Please specify the path using --ableton-path[/yellow]")
-            console.print("Examples:")
+                "\n[yellow]⚠️  Could not automatically find Ableton Live Remote Scripts directory.[/yellow]")
+            console.print("Common locations:")
             if sys.platform == "darwin":
                 console.print(
-                    "  --ableton-path \"/Applications/Ableton Live 11 Suite.app/"
-                    "Contents/App-Resources/MIDI Remote Scripts\"")
+                    "  • /Applications/Ableton Live 11 Suite.app/Contents/App-Resources/MIDI Remote Scripts")
             elif sys.platform == "win32":
                 console.print(
-                    "  --ableton-path \"C:\\Program Files\\Ableton\\Live 11 Suite\\"
-                    "Resources\\MIDI Remote Scripts\"")
+                    "  • C:\\Program Files\\Ableton\\Live 11 Suite\\Resources\\MIDI Remote Scripts")
             else:
                 console.print(
-                    "  --ableton-path \"/path/to/ableton/MIDI Remote Scripts\"")
-            sys.exit(1)
+                    "  • /path/to/ableton/MIDI Remote Scripts")
+
+            console.print()
+            target_base_path = Prompt.ask("[bold cyan]Please enter the path manually[/bold cyan]")
+
+            if not target_base_path or not os.path.exists(target_base_path):
+                console.print(
+                    f"[bold red]❌ Error: Path does not exist: {target_base_path}[/bold red]")
+                sys.exit(1)
+
         console.print(
-            f"📂 Found Ableton Live directory: [cyan]{target_base_path}[/cyan]")
+            f"📂 Target directory: [cyan]{target_base_path}[/cyan]")
 
     target_path = os.path.join(
         target_base_path, "AbletonMCP_Remote_Script")
