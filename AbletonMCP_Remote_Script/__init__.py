@@ -8,12 +8,21 @@ import threading
 import time
 import traceback
 import math
+import re
 
 # Change queue import for Python 2
 try:
     import Queue as queue  # Python 2
 except ImportError:
     import queue  # Python 3
+
+# Regex for stateful JSON parsing optimization
+# Matches:
+# 1. Escape sequence: Backslash followed by any char (consumes the escape)
+# 2. Backslash alone (at end of chunk)
+# 3. Quote
+# 4. Braces/Brackets
+TOKEN_PATTERN = re.compile(r'(\\.|\\|["]|[\[\]{}])')
 
 # Constants for socket communication
 DEFAULT_PORT = 9877
@@ -170,6 +179,10 @@ class AbletonMCP(ControlSurface):
         client.settimeout(None)  # No timeout for client socket
         # Use list for O(1) appends instead of O(N) string concatenation
         buffer_chunks = []
+        # Optimization: Track parsing state to avoid O(N^2) behavior
+        brace_balance = 0
+        in_string = False
+        escaped = False
 
         try:
             while self.running:
@@ -193,12 +206,39 @@ class AbletonMCP(ControlSurface):
 
                     buffer_chunks.append(chunk)
 
+                    # Update parsing state efficiently without joining chunks
+                    # This prevents joining and parsing on every chunk for incomplete messages
+                    start_pos = 0
+                    if escaped:
+                        # Previous chunk ended with backslash, so first char is escaped
+                        escaped = False
+                        start_pos = 1
+
+                    for match in TOKEN_PATTERN.finditer(chunk, start_pos):
+                        token = match.group()
+                        if in_string:
+                            if len(token) == 2 and token.startswith('\\'):
+                                # Self-contained escape sequence (e.g. \" or \n)
+                                pass
+                            elif token == '\\':
+                                # Trailing backslash at end of chunk
+                                escaped = True
+                            elif token == '"':
+                                # End of string
+                                in_string = False
+                        else:
+                            if token == '"':
+                                in_string = True
+                            elif token == '{' or token == '[':
+                                brace_balance += 1
+                            elif token == '}' or token == ']':
+                                brace_balance -= 1
+
                     try:
-                        # Optimization: Only attempt to parse if the buffer looks
-                        # like a complete JSON object to avoid O(N^2) parsing.
-                        # We use a custom check to avoid buffer.strip() which creates a full copy.
-                        # Also avoids joining chunks until we have a likely candidate.
-                        if not self._is_complete_json_candidate(buffer_chunks):
+                        # Optimization: Only attempt to parse if brace balance is zero
+                        # and we are not in a string, ensuring complete JSON structure.
+                        # Also check if we have an escaped character pending (incomplete escape).
+                        if brace_balance != 0 or in_string or escaped:
                             continue
 
                         # Join chunks only when we have a candidate
@@ -207,6 +247,10 @@ class AbletonMCP(ControlSurface):
                         # Try to parse command from buffer
                         command = json.loads(full_buffer)
                         buffer_chunks = []  # Clear buffer after successful parse
+                        # Reset state after successful parse
+                        brace_balance = 0
+                        in_string = False
+                        escaped = False
 
                         if self.DEBUG:
                             self.log_message("Received command: " +
@@ -262,28 +306,6 @@ class AbletonMCP(ControlSurface):
             except:
                 pass
             self.log_message("Client handler stopped")
-
-    def _is_complete_json_candidate(self, chunks):
-        """
-        Check if the sequence of chunks ends with '}' ignoring trailing whitespace.
-        Avoids joining chunks just to check the end.
-        """
-        if not chunks:
-            return False
-
-        # Scan chunks from end to start
-        for i in range(len(chunks) - 1, -1, -1):
-            chunk = chunks[i]
-            if not chunk:
-                continue
-
-            # Optimization: Use rstrip() which is implemented in C and much faster
-            # than manual iteration in Python.
-            stripped = chunk.rstrip()
-            if stripped:
-                return stripped.endswith('}')
-
-        return False
 
     def _process_command(self, command):
         """Process a command from the client and return a response"""
