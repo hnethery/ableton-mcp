@@ -70,6 +70,29 @@ class TestQValueConversion(unittest.TestCase):
         # Above max
         self.assertEqual(AbletonMCP._q_to_normalized(None, 20.0), 1.0)
 
+    def test_normalized_to_q_conversion(self):
+        """Verify that normalized value converts back to Q correctly."""
+        min_q = 0.1
+        max_q = 18.0
+
+        # Test 0.0 -> min_q
+        self.assertAlmostEqual(AbletonMCP._normalized_to_q(None, 0.0), min_q)
+
+        # Test 1.0 -> max_q
+        self.assertAlmostEqual(AbletonMCP._normalized_to_q(None, 1.0), max_q)
+
+        # Test 0.5 -> Geometric mean
+        # log(mid) = (log(min) + log(max)) / 2
+        # mid = sqrt(min * max)
+        expected_mid = math.sqrt(min_q * max_q)
+        self.assertAlmostEqual(AbletonMCP._normalized_to_q(None, 0.5), expected_mid)
+
+        # Round trip test
+        q_original = 2.5
+        normalized = AbletonMCP._q_to_normalized(None, q_original)
+        q_restored = AbletonMCP._normalized_to_q(None, normalized)
+        self.assertAlmostEqual(q_original, q_restored)
+
     def test_no_rough_approximation(self):
         """
         Verify that we are NOT using the rough approximation q / 10.0.

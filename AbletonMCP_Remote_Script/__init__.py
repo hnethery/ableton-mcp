@@ -1067,6 +1067,7 @@ class AbletonMCP(ControlSurface):
 
         EQ Eight Q range is 0.1 to 18.0.
         This uses a logarithmic mapping which is more accurate than linear approximation.
+        Formula: normalized = (ln(q) - ln(min)) / (ln(max) - ln(min))
         """
         if q is None:
             raise ValueError("Q must be provided")
@@ -1094,7 +1095,11 @@ class AbletonMCP(ControlSurface):
         return (ln_q - ln_min) / (ln_max - ln_min)
 
     def _normalized_to_q(self, normalized, min_q=0.1, max_q=18.0):
-        """Convert normalized value (0-1) to Q value using logarithmic scale"""
+        """
+        Convert normalized value (0-1) to Q value using logarithmic scale.
+
+        Formula: q = exp(normalized * (ln(max) - ln(min)) + ln(min))
+        """
         if normalized is None:
             raise ValueError("Normalized value must be provided")
 
