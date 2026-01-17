@@ -981,6 +981,9 @@ class AbletonMCP(ControlSurface):
         """
         Convert frequency in Hz to normalized value (0-1) using precise logarithmic scale.
 
+        This ensures accurate parameter control matching Ableton's internal behavior,
+        replacing any previous rough approximations.
+
         EQ Eight frequency range is 10Hz to 22kHz.
         Formula: normalized = (ln(freq) - ln(min)) / (ln(max) - ln(min))
         """
@@ -1022,6 +1025,8 @@ class AbletonMCP(ControlSurface):
     def _normalized_to_frequency(self, normalized, min_freq=10.0, max_freq=22000.0):
         """
         Convert normalized value (0-1) to frequency in Hz using precise logarithmic scale.
+
+        This ensures accurate parameter feedback matching Ableton's internal behavior.
 
         EQ Eight frequency range is 10Hz to 22kHz.
         Formula: freq = exp(normalized * (ln(max) - ln(min)) + ln(min))
@@ -1369,7 +1374,7 @@ class AbletonMCP(ControlSurface):
 
                 freq_param = param_map[freq_param_name]
 
-                # Convert frequency value (Hz) to normalized value (0-1) using precise logarithmic mapping
+                # Convert frequency value (Hz) to normalized value (0-1) using precise logarithmic mapping that matches Ableton behavior
                 normalized_value = self._frequency_to_normalized(frequency)
 
                 freq_param.value = normalized_value
